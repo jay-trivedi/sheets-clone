@@ -3,6 +3,7 @@ import CellRange from './CellRange.js';
 import Range from '../api/Range.js';
 import { DEFAULT_COL_WIDTH, DEFAULT_ROW_HEIGHT, DEFAULT_ROWS, DEFAULT_COLS, CELL_TYPE } from '../utils/constants.js';
 import { cellKey, keyToRC, generateId, indexToCol, parseCellRef } from '../utils/helpers.js';
+import FormulaEngine from '../formula/FormulaEngine.js';
 
 export default class Sheet {
   constructor(name, opts = {}) {
@@ -227,9 +228,13 @@ export default class Sheet {
 
     this.rowCount += count;
     this._shiftMerges(at, count, true);
+    this._adjustAllFormulas('row', at, count);
   }
 
   deleteRows(at, count = 1) {
+    // Adjust formulas BEFORE moving cells (so refs point to current positions)
+    this._adjustAllFormulas('row', at, -count);
+
     const newCells = new Map();
     for (const [key, cell] of this.cells) {
       const { row, col } = keyToRC(key);
@@ -273,9 +278,13 @@ export default class Sheet {
 
     this.colCount += count;
     this._shiftMerges(at, count, false);
+    this._adjustAllFormulas('col', at, count);
   }
 
   deleteCols(at, count = 1) {
+    // Adjust formulas BEFORE moving cells
+    this._adjustAllFormulas('col', at, -count);
+
     const newCells = new Map();
     for (const [key, cell] of this.cells) {
       const { row, col } = keyToRC(key);
@@ -313,6 +322,22 @@ export default class Sheet {
       const range = CellRange.fromString(m);
       return range && range.startRow >= 0 && range.startCol >= 0;
     });
+  }
+
+  /**
+   * Adjust all formula references on this sheet after row/col insert/delete.
+   * This updates formulas so references stay correct when cells move.
+   */
+  _adjustAllFormulas(dimension, at, count) {
+    for (const [key, cell] of this.cells) {
+      if (cell.formula) {
+        const adjusted = FormulaEngine.adjustFormula(cell.formula, dimension, at, count);
+        if (adjusted !== cell.formula) {
+          cell.formula = adjusted;
+          cell.rawValue = adjusted;
+        }
+      }
+    }
   }
 
   addMerge(range) {

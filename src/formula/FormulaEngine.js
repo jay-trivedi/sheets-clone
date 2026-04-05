@@ -732,23 +732,83 @@ export default class FormulaEngine {
     }
   }
 
-  // Shift references in a formula when rows/cols are inserted/deleted
-  static adjustFormula(formula, insertRow, insertCol, deltaRow, deltaCol, sheetName) {
+  /**
+   * Adjust all cell references in a formula when rows/cols are inserted or deleted.
+   *
+   * @param {string} formula - The formula string (e.g., "=SUM(A1:A10)")
+   * @param {'row'|'col'} dimension - Whether rows or columns were changed
+   * @param {number} at - 0-based index where the insert/delete happened
+   * @param {number} count - Positive = inserted, negative = deleted
+   * @returns {string} Adjusted formula
+   *
+   * Rules (matching Google Sheets):
+   * - References at or after the insert/delete point shift by `count`
+   * - Absolute references ($A$1) ALSO shift (unlike copy-paste)
+   * - If a deletion removes a referenced cell, it becomes #REF!
+   * - Ranges that span the insert point expand/contract
+   */
+  static adjustFormula(formula, dimension, at, count) {
     if (!formula || !formula.startsWith('=')) return formula;
 
-    return formula.replace(/(\$?)([A-Z]+)(\$?)(\d+)/gi, (match, colAbs, colStr, rowAbs, rowStr) => {
-      let col = colToIndex(colStr.toUpperCase());
-      let row = parseInt(rowStr, 10) - 1;
+    // Match cell refs and ranges, including $-prefixed
+    // We need to handle ranges (A1:B5) as a unit to properly expand/contract
+    const rangeRegex = /(\$?)([A-Z]+)(\$?)(\d+)(?::(\$?)([A-Z]+)(\$?)(\d+))?/gi;
 
-      if (!rowAbs && deltaRow !== 0 && row >= insertRow) {
-        row += deltaRow;
-      }
-      if (!colAbs && deltaCol !== 0 && col >= insertCol) {
-        col += deltaCol;
+    return formula.replace(rangeRegex, (match, ca1, cs1, ra1, rs1, ca2, cs2, ra2, rs2) => {
+      let c1 = colToIndex(cs1.toUpperCase());
+      let r1 = parseInt(rs1, 10) - 1;
+      const isRange = cs2 !== undefined;
+      let c2 = isRange ? colToIndex(cs2.toUpperCase()) : c1;
+      let r2 = isRange ? parseInt(rs2, 10) - 1 : r1;
+
+      if (dimension === 'row') {
+        // Adjust rows
+        if (count > 0) {
+          // INSERT: shift refs at or after `at`
+          if (r1 >= at) r1 += count;
+          if (r2 >= at) r2 += count;
+        } else {
+          // DELETE: count is negative, |count| rows removed starting at `at`
+          const delEnd = at + Math.abs(count) - 1;
+          // Check if ref falls in deleted range
+          if (!isRange) {
+            if (r1 >= at && r1 <= delEnd) return ERROR_TYPE.REF;
+            if (r1 > delEnd) r1 += count;
+          } else {
+            // Range: contract if deletion is inside, shift if after
+            if (r1 >= at && r1 <= delEnd) r1 = at; // clamp start to deletion point
+            else if (r1 > delEnd) r1 += count;
+            if (r2 >= at && r2 <= delEnd) r2 = Math.max(at - 1, r1); // clamp end
+            else if (r2 > delEnd) r2 += count;
+            if (r1 > r2) return ERROR_TYPE.REF; // entire range deleted
+          }
+        }
+      } else {
+        // Adjust columns
+        if (count > 0) {
+          if (c1 >= at) c1 += count;
+          if (c2 >= at) c2 += count;
+        } else {
+          const delEnd = at + Math.abs(count) - 1;
+          if (!isRange) {
+            if (c1 >= at && c1 <= delEnd) return ERROR_TYPE.REF;
+            if (c1 > delEnd) c1 += count;
+          } else {
+            if (c1 >= at && c1 <= delEnd) c1 = at;
+            else if (c1 > delEnd) c1 += count;
+            if (c2 >= at && c2 <= delEnd) c2 = Math.max(at - 1, c1);
+            else if (c2 > delEnd) c2 += count;
+            if (c1 > c2) return ERROR_TYPE.REF;
+          }
+        }
       }
 
-      if (row < 0 || col < 0) return ERROR_TYPE.REF;
-      return (colAbs ? '$' : '') + indexToCol(col) + (rowAbs ? '$' : '') + (row + 1);
+      if (r1 < 0 || c1 < 0) return ERROR_TYPE.REF;
+
+      const ref1 = (ca1 || '') + indexToCol(c1) + (ra1 || '') + (r1 + 1);
+      if (!isRange) return ref1;
+      const ref2 = (ca2 || '') + indexToCol(c2) + (ra2 || '') + (r2 + 1);
+      return ref1 + ':' + ref2;
     });
   }
 
