@@ -78,7 +78,10 @@ export default class MouseHandler {
       const cell = renderer.getCellAtPoint(x, y);
       if (cell) {
         const handled = ss.formulaHelper.handlePointModeClick(cell.row, cell.col, e.shiftKey);
-        if (handled) return;
+        if (handled) {
+          e.preventDefault(); // Prevent browser from stealing focus from textarea
+          return;
+        }
       }
     }
 

@@ -203,19 +203,18 @@ export default class FormulaHelper {
     // Check if we should show autocomplete or hint
     const tokenInfo = this._getTokenAtCursor(beforeCursor);
 
+    // Always update point mode first
+    this._updatePointMode(beforeCursor, tokenInfo);
+
     if (tokenInfo.type === 'funcName') {
-      // Show autocomplete for partial function name
       this._showAutocomplete(tokenInfo.value, textareaRect);
       this._hideHint();
     } else if (tokenInfo.type === 'insideFunc') {
-      // Show function signature hint
       this._hideAutocomplete();
       this._showHint(tokenInfo.funcName, tokenInfo.argIndex, textareaRect);
-      // Determine if we should enter point mode
-      this._updatePointMode(beforeCursor, tokenInfo);
     } else {
-      this.hide();
-      this._updatePointMode(beforeCursor, tokenInfo);
+      this._hideAutocomplete();
+      this._hideHint();
     }
   }
 
@@ -440,18 +439,33 @@ export default class FormulaHelper {
   // ── Point Mode (cell selection during formula editing) ──
 
   _updatePointMode(beforeCursor, tokenInfo) {
-    if (!beforeCursor || beforeCursor.length <= 1) {
+    if (!beforeCursor || beforeCursor.length < 1) {
       this.pointMode = false;
       return;
     }
 
-    // We're in point mode if the last non-space char is an operator or open paren
+    // Point mode = arrow keys / clicks insert cell references instead of moving cursor.
+    // Active when cursor is right after: = ( , ; + - * / ^ & < > <= >= <> !
+    // Also active when cursor is right after a cell reference we just inserted (so
+    // repeated arrows extend/move the ref). NOT active when typing function names,
+    // strings, or numbers (arrow keys should move text cursor).
+
     const trimmed = beforeCursor.trimEnd();
     const lastChar = trimmed.slice(-1);
-    this.pointMode = POINT_MODE_TRIGGERS.has(lastChar);
-    if (this.pointMode) {
+
+    if (POINT_MODE_TRIGGERS.has(lastChar)) {
+      // Just typed an operator — ready for new reference
+      this.pointMode = true;
       this.pointAnchor = null;
       this.pointCurrent = null;
+    } else if (this.pointAnchor) {
+      // We have an active anchor from a previous arrow/click — stay in point mode
+      // so shift+arrow can extend. The anchor persists until user types an operator
+      // or non-ref character.
+      this.pointMode = true;
+    } else {
+      // Typing a function name, number, or string — not in point mode
+      this.pointMode = false;
     }
   }
 
@@ -528,21 +542,14 @@ export default class FormulaHelper {
 
   // Called when user clicks a cell while editing a formula
   handlePointModeClick(row, col, shiftKey) {
-    if (!this.active) return false;
-
     const editor = this.spreadsheet.editor;
     if (!editor || !editor.isActive) return false;
 
     const text = editor.textarea.value;
     if (!text.startsWith('=')) return false;
 
-    const cursorPos = editor.textarea.selectionStart;
-    const beforeCursor = text.substring(0, cursorPos);
-    const trimmed = beforeCursor.trimEnd();
-    const lastChar = trimmed.slice(-1);
-
-    // Only insert ref if cursor is after an operator, '(' or ','
-    const canInsert = POINT_MODE_TRIGGERS.has(lastChar) || this.pointAnchor;
+    // Always allow click-to-insert in formula mode
+    const canInsert = this.pointMode || this.pointAnchor;
 
     if (!canInsert) return false;
 
