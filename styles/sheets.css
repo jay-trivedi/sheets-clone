@@ -60,6 +60,74 @@
   background: #c0c0c0;
 }
 
+.sheets-toolbar-dropdown-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+
+.sheets-has-dropdown {
+  padding-right: 2px;
+}
+
+.sheets-dropdown-caret {
+  font-size: 8px;
+  margin-left: 2px;
+  color: #888;
+}
+
+.sheets-toolbar-menu {
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  padding: 6px 0;
+  z-index: 300;
+  min-width: 180px;
+  font-size: 13px;
+}
+
+.sheets-toolbar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  color: #333;
+}
+
+.sheets-toolbar-menu-item:hover {
+  background: #e8f0fe;
+}
+
+.sheets-menu-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sheets-menu-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sheets-toolbar-menu-sep {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+
+.sheets-font-select {
+  max-width: 110px;
+}
+
+.sheets-size-select {
+  max-width: 55px;
+}
+
 .sheets-toolbar-btn svg {
   width: 16px;
   height: 16px;
@@ -342,6 +410,113 @@
   width: 80px;
   height: 20px;
   border-radius: 2px;
+}
+
+/* ── Filter Dialog ── */
+.sheets-filter-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 500;
+}
+
+.sheets-filter-dialog {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+  width: 260px;
+  max-height: 400px;
+  display: flex;
+  flex-direction: column;
+  font-size: 13px;
+  z-index: 501;
+}
+
+.sheets-filter-sort {
+  padding: 6px 0;
+}
+
+.sheets-filter-sort-btn {
+  padding: 7px 16px;
+  cursor: pointer;
+  color: #333;
+}
+
+.sheets-filter-sort-btn:hover {
+  background: #e8f0fe;
+}
+
+.sheets-filter-dialog hr {
+  border: none;
+  border-top: 1px solid #e0e0e0;
+  margin: 0;
+}
+
+.sheets-filter-toggle {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: #1a73e8;
+}
+
+.sheets-filter-toggle a {
+  color: #1a73e8;
+  text-decoration: none;
+}
+
+.sheets-filter-toggle a:hover {
+  text-decoration: underline;
+}
+
+.sheets-filter-list {
+  flex: 1;
+  overflow-y: auto;
+  max-height: 200px;
+  padding: 4px 0;
+}
+
+.sheets-filter-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 16px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.sheets-filter-item:hover {
+  background: #f5f5f5;
+}
+
+.sheets-filter-item input[type="checkbox"] {
+  margin: 0;
+}
+
+.sheets-filter-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.sheets-filter-actions button {
+  padding: 6px 16px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  background: #fff;
+}
+
+.sheets-filter-ok {
+  background: #1a73e8 !important;
+  color: #fff !important;
+  border-color: #1a73e8 !important;
+}
+
+.sheets-filter-ok:hover {
+  background: #1557b0 !important;
 }
 
 /* ── Formula Autocomplete Dropdown ── */

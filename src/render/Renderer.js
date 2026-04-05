@@ -130,6 +130,7 @@ export default class Renderer {
     ctx.clip();
     this._drawCells(ctx, sheet, vp);
     this._drawGridLines(ctx, sheet, vp);
+    this._drawFilterArrows(ctx, sheet, vp);
     this._drawFormulaRefs(ctx, sheet, vp);
     this._drawSelection(ctx, sheet, vp);
     this._drawFreezeLines(ctx, sheet);
@@ -486,6 +487,70 @@ export default class Renderer {
         crEnd.y + crEnd.h - crStart.y);
       ctx.setLineDash([]);
     }
+  }
+
+  _drawFilterArrows(ctx, sheet, vp) {
+    if (!sheet.filterRange) return;
+    const range = this.spreadsheet.constructor.prototype._parseRange
+      ? null : null; // use CellRange
+    let fr;
+    try {
+      // Import CellRange dynamically via the spreadsheet's reference
+      const parts = sheet.filterRange.split(':');
+      if (parts.length !== 2) return;
+      const startMatch = parts[0].match(/([A-Z]+)(\d+)/i);
+      const endMatch = parts[1].match(/([A-Z]+)(\d+)/i);
+      if (!startMatch || !endMatch) return;
+      const colToIdx = (s) => { let idx = 0; for (let i = 0; i < s.length; i++) idx = idx * 26 + (s.charCodeAt(i) - 64); return idx - 1; };
+      const r1 = parseInt(startMatch[2]) - 1, c1 = colToIdx(startMatch[1].toUpperCase());
+      const r2 = parseInt(endMatch[2]) - 1, c2 = colToIdx(endMatch[1].toUpperCase());
+      fr = { startRow: r1, startCol: c1, endRow: r2, endCol: c2 };
+    } catch (e) { return; }
+
+    const headerRow = fr.startRow;
+    for (let c = fr.startCol; c <= fr.endCol; c++) {
+      if (c < vp.startCol || c > vp.endCol) continue;
+      const rect = this._getCellRect(sheet, headerRow, c);
+      const ax = rect.x + rect.w - 14;
+      const ay = rect.y + (rect.h - 10) / 2;
+
+      // Green background square
+      const hasFilter = sheet.filterCriteria.has(c);
+      ctx.fillStyle = hasFilter ? '#34a853' : '#e0e0e0';
+      ctx.fillRect(ax, ay, 12, 12);
+
+      // Down arrow
+      ctx.fillStyle = hasFilter ? '#fff' : '#666';
+      ctx.beginPath();
+      ctx.moveTo(ax + 3, ay + 4);
+      ctx.lineTo(ax + 9, ay + 4);
+      ctx.lineTo(ax + 6, ay + 9);
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+
+  isFilterArrow(x, y) {
+    const sheet = this.spreadsheet.activeSheet;
+    if (!sheet || !sheet.filterRange) return null;
+    try {
+      const parts = sheet.filterRange.split(':');
+      const startMatch = parts[0].match(/([A-Z]+)(\d+)/i);
+      const endMatch = parts[1].match(/([A-Z]+)(\d+)/i);
+      if (!startMatch || !endMatch) return null;
+      const colToIdx = (s) => { let idx = 0; for (let i = 0; i < s.length; i++) idx = idx * 26 + (s.charCodeAt(i) - 64); return idx - 1; };
+      const headerRow = parseInt(startMatch[2]) - 1;
+      const c1 = colToIdx(startMatch[1].toUpperCase());
+      const c2 = colToIdx(endMatch[1].toUpperCase());
+
+      for (let c = c1; c <= c2; c++) {
+        const rect = this._getCellRect(sheet, headerRow, c);
+        const ax = rect.x + rect.w - 14;
+        const ay = rect.y + (rect.h - 10) / 2;
+        if (x >= ax && x <= ax + 12 && y >= ay && y <= ay + 12) return c;
+      }
+    } catch (e) {}
+    return null;
   }
 
   _drawFormulaRefs(ctx, sheet, vp) {

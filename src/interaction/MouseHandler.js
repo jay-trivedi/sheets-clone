@@ -73,6 +73,13 @@ export default class MouseHandler {
     const renderer = this.spreadsheet.renderer;
     const ss = this.spreadsheet;
 
+    // Filter arrow click
+    const filterCol = renderer.isFilterArrow(x, y);
+    if (filterCol !== null) {
+      ss.showFilterDropdown(filterCol);
+      return;
+    }
+
     // Formula point-mode: clicking a cell inserts a reference instead of closing editor
     if (ss.editor && ss.editor.isActive && ss.editor.isFormulaMode && ss.formulaHelper) {
       const cell = renderer.getCellAtPoint(x, y);

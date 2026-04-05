@@ -630,6 +630,210 @@ export default class Spreadsheet {
     this.render();
   }
 
+  // ── Filter ──
+
+  toggleFilter() {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+
+    if (sheet.filterRange) {
+      // Remove filter
+      sheet.filterRange = null;
+      sheet.filterCriteria.clear();
+      sheet.filteredRows.clear();
+      this.render();
+      return;
+    }
+
+    // Auto-detect data range or use selection
+    const sel = this.selection;
+    let range;
+    if (sel && !sel.isSingleCell) {
+      range = sel;
+    } else {
+      range = sheet.getUsedRange();
+    }
+    if (!range) return;
+
+    sheet.filterRange = range.toString();
+    sheet.filterCriteria.clear();
+    sheet.filteredRows.clear();
+    this.render();
+  }
+
+  showFilterDropdown(col) {
+    const sheet = this.activeSheet;
+    if (!sheet || !sheet.filterRange) return;
+
+    const range = CellRange.fromString(sheet.filterRange);
+    if (!range) return;
+
+    // Collect unique values in the column
+    const values = new Map();
+    for (let r = range.startRow + 1; r <= range.endRow; r++) {
+      const val = sheet.getCellValue(r, col);
+      const key = val === null || val === undefined ? '' : String(val);
+      values.set(key, (values.get(key) || 0) + 1);
+    }
+
+    const existing = sheet.filterCriteria.get(col) || null;
+    const hidden = existing ? new Set(existing) : new Set();
+
+    // Build filter dropdown
+    const overlay = document.createElement('div');
+    overlay.className = 'sheets-filter-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'sheets-filter-dialog';
+
+    // Sort A→Z / Z→A
+    const sortSection = document.createElement('div');
+    sortSection.className = 'sheets-filter-sort';
+    const sortAZ = document.createElement('div');
+    sortAZ.className = 'sheets-filter-sort-btn';
+    sortAZ.textContent = 'Sort A → Z';
+    sortAZ.onclick = () => { this._filterSort(col, true); overlay.remove(); };
+    const sortZA = document.createElement('div');
+    sortZA.className = 'sheets-filter-sort-btn';
+    sortZA.textContent = 'Sort Z → A';
+    sortZA.onclick = () => { this._filterSort(col, false); overlay.remove(); };
+    sortSection.appendChild(sortAZ);
+    sortSection.appendChild(sortZA);
+    dialog.appendChild(sortSection);
+
+    dialog.appendChild(document.createElement('hr'));
+
+    // Select all / Deselect all
+    const toggleRow = document.createElement('div');
+    toggleRow.className = 'sheets-filter-toggle';
+    const selectAll = document.createElement('a');
+    selectAll.textContent = 'Select all';
+    selectAll.href = '#';
+    selectAll.onclick = (e) => { e.preventDefault(); checkboxes.forEach(cb => cb.checked = true); };
+    const deselectAll = document.createElement('a');
+    deselectAll.textContent = 'Clear';
+    deselectAll.href = '#';
+    deselectAll.onclick = (e) => { e.preventDefault(); checkboxes.forEach(cb => cb.checked = false); };
+    toggleRow.appendChild(selectAll);
+    toggleRow.appendChild(document.createTextNode(' | '));
+    toggleRow.appendChild(deselectAll);
+    dialog.appendChild(toggleRow);
+
+    // Checkbox list
+    const list = document.createElement('div');
+    list.className = 'sheets-filter-list';
+    const checkboxes = [];
+    const sortedKeys = [...values.keys()].sort();
+
+    for (const key of sortedKeys) {
+      const row = document.createElement('label');
+      row.className = 'sheets-filter-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !hidden.has(key);
+      cb.dataset.value = key;
+      checkboxes.push(cb);
+      row.appendChild(cb);
+      row.appendChild(document.createTextNode(' ' + (key || '(Blanks)') + ' (' + values.get(key) + ')'));
+      list.appendChild(row);
+    }
+    dialog.appendChild(list);
+
+    // OK / Cancel
+    const actions = document.createElement('div');
+    actions.className = 'sheets-filter-actions';
+    const okBtn = document.createElement('button');
+    okBtn.textContent = 'OK';
+    okBtn.className = 'sheets-filter-ok';
+    okBtn.onclick = () => {
+      const newHidden = new Set();
+      checkboxes.forEach(cb => { if (!cb.checked) newHidden.add(cb.dataset.value); });
+      if (newHidden.size > 0) {
+        sheet.filterCriteria.set(col, newHidden);
+      } else {
+        sheet.filterCriteria.delete(col);
+      }
+      this._applyFilter();
+      overlay.remove();
+    };
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.onclick = () => overlay.remove();
+    actions.appendChild(cancelBtn);
+    actions.appendChild(okBtn);
+    dialog.appendChild(actions);
+
+    overlay.appendChild(dialog);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+
+    // Position near the column header
+    const rect = this.renderer._getCellRect(sheet, range.startRow, col);
+    const containerRect = this.container.getBoundingClientRect();
+    dialog.style.left = (containerRect.left + rect.x) + 'px';
+    dialog.style.top = (containerRect.top + rect.y + rect.h) + 'px';
+  }
+
+  _filterSort(col, asc) {
+    const sheet = this.activeSheet;
+    if (!sheet || !sheet.filterRange) return;
+    const range = CellRange.fromString(sheet.filterRange);
+    if (!range) return;
+
+    // Collect rows (skip header)
+    const rows = [];
+    for (let r = range.startRow + 1; r <= range.endRow; r++) {
+      const rowData = [];
+      for (let c = range.startCol; c <= range.endCol; c++) {
+        const cell = sheet.getCell(r, c);
+        rowData.push(cell ? cell.clone() : null);
+      }
+      rows.push({ data: rowData, key: sheet.getCellValue(r, col) });
+    }
+
+    rows.sort((a, b) => {
+      const va = a.key, vb = b.key;
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return asc ? cmp : -cmp;
+    });
+
+    for (let i = 0; i < rows.length; i++) {
+      for (let c = 0; c < rows[i].data.length; c++) {
+        const cell = rows[i].data[c];
+        if (cell) sheet.setCell(range.startRow + 1 + i, range.startCol + c, cell);
+        else sheet.clearCell(range.startRow + 1 + i, range.startCol + c);
+      }
+    }
+
+    this.recalculate();
+    this.render();
+  }
+
+  _applyFilter() {
+    const sheet = this.activeSheet;
+    if (!sheet || !sheet.filterRange) return;
+    const range = CellRange.fromString(sheet.filterRange);
+    if (!range) return;
+
+    sheet.filteredRows.clear();
+
+    for (let r = range.startRow + 1; r <= range.endRow; r++) {
+      for (const [col, hiddenSet] of sheet.filterCriteria) {
+        const val = sheet.getCellValue(r, col);
+        const key = val === null || val === undefined ? '' : String(val);
+        if (hiddenSet.has(key)) {
+          sheet.filteredRows.add(r);
+          break;
+        }
+      }
+    }
+
+    this.render();
+  }
+
   // ── Find / Replace ──
 
   showFindReplace(replace = false) {
