@@ -508,11 +508,11 @@ export default class FormulaHelper {
     const dc = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
 
     if (!this.pointAnchor) {
-      this.pointAnchor = { row: ss.activeRow, col: ss.activeCol };
-      this.pointCurrent = {
-        row: Math.max(0, Math.min(ss.activeRow + dr, sheet.rowCount - 1)),
-        col: Math.max(0, Math.min(ss.activeCol + dc, sheet.colCount - 1)),
-      };
+      // First arrow: single cell reference at the target cell
+      const r = Math.max(0, Math.min(ss.activeRow + dr, sheet.rowCount - 1));
+      const c = Math.max(0, Math.min(ss.activeCol + dc, sheet.colCount - 1));
+      this.pointAnchor = { row: r, col: c };
+      this.pointCurrent = { row: r, col: c };
     } else if (e.shiftKey) {
       this.pointCurrent = {
         row: Math.max(0, Math.min(this.pointCurrent.row + dr, sheet.rowCount - 1)),
