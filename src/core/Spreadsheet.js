@@ -639,14 +639,14 @@ export default class Spreadsheet {
   // ── Formula recalculation ──
 
   recalculate() {
-    const sheet = this.activeSheet;
-    if (!sheet) return;
-
-    for (const [key, cell] of sheet.cells) {
-      if (cell.formula) {
-        const row = key >> 16;
-        const col = key & 0xffff;
-        cell.computedValue = this.formulaEngine.evaluate(cell.formula, sheet.id, row, col);
+    // Evaluate formulas on ALL sheets (not just active) for cross-sheet references
+    for (const sheet of this.sheets) {
+      for (const [key, cell] of sheet.cells) {
+        if (cell.formula) {
+          const row = key >> 16;
+          const col = key & 0xffff;
+          cell.computedValue = this.formulaEngine.evaluate(cell.formula, sheet.id, row, col);
+        }
       }
     }
   }
