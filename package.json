@@ -1,0 +1,19 @@
+{
+  "name": "sheets",
+  "version": "1.0.0",
+  "description": "A full-featured Google Sheets clone as a JavaScript library",
+  "main": "dist/sheets.js",
+  "module": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "node build.js",
+    "dev": "node build.js --watch"
+  },
+  "devDependencies": {
+    "esbuild": "^0.20.0"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  }
+}

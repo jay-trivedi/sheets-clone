@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sheets — Google Sheets Clone</title>
+  <!-- SheetJS for XLSX import/export -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+  <link rel="stylesheet" href="../styles/sheets.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    html, body {
+      width: 100%; height: 100%;
+      overflow: hidden;
+      font-family: 'Google Sans', Arial, sans-serif;
+    }
+
+    .app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    /* ── Top Header Bar ── */
+    .app-header {
+      display: flex;
+      align-items: center;
+      padding: 4px 12px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      gap: 8px;
+      min-height: 48px;
+      flex-shrink: 0;
+    }
+
+    .app-logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, #34a853 0%, #0d652d 100%);
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-weight: bold;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    .app-title-area {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .app-title {
+      font-size: 17px;
+      font-weight: 400;
+      color: #333;
+      outline: none;
+      border: 1px solid transparent;
+      padding: 2px 6px;
+      border-radius: 4px;
+      width: 200px;
+      max-width: 40vw;
+    }
+
+    .app-title:focus {
+      border-color: #1a73e8;
+    }
+
+    .app-header-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .app-menu-bar {
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 0;
+      background: #fff;
+      min-height: 28px;
+      flex-shrink: 0;
+    }
+
+    .app-menu-item {
+      padding: 4px 10px;
+      font-size: 13px;
+      color: #444;
+      cursor: pointer;
+      border-radius: 4px;
+      position: relative;
+      white-space: nowrap;
+    }
+
+    .app-menu-item:hover {
+      background: #e8f0fe;
+    }
+
+    /* ── Action Buttons ── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 14px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      background: #fff;
+      font-size: 13px;
+      color: #444;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: #f0f0f0; border-color: #bbb; }
+    .btn.primary { background: #1a73e8; color: #fff; border-color: #1a73e8; }
+    .btn.primary:hover { background: #1557b0; }
+
+    .btn svg { width: 16px; height: 16px; }
+
+    /* ── Dropdown Menus ── */
+    .dropdown-menu {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      padding: 6px 0;
+      z-index: 2000;
+      min-width: 200px;
+      display: none;
+    }
+
+    .dropdown-menu.show { display: block; }
+
+    .dropdown-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #333;
+    }
+
+    .dropdown-item:hover { background: #e8f0fe; }
+
+    .dropdown-item .shortcut {
+      color: #999;
+      font-size: 12px;
+      margin-left: 24px;
+    }
+
+    .dropdown-sep {
+      height: 1px;
+      background: #e0e0e0;
+      margin: 4px 0;
+    }
+
+    /* ── Spreadsheet Container ── */
+    #spreadsheet {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* ── Import Modal ── */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 3000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-overlay.show { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+      padding: 24px;
+      max-width: 90vw;
+      max-height: 90vh;
+      overflow: auto;
+    }
+
+    .modal h3 { margin: 0 0 16px; font-size: 18px; color: #333; }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    /* ── Drop Zone ── */
+    .drop-zone {
+      border: 2px dashed #dadce0;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      color: #888;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #1a73e8;
+      background: #e8f0fe;
+      color: #1a73e8;
+    }
+
+    .drop-zone p { margin: 8px 0; font-size: 14px; }
+    .drop-zone .formats { font-size: 12px; color: #aaa; }
+
+    /* ── Pivot Table Modal ── */
+    .pivot-modal .modal { width: 600px; }
+
+    .pivot-section {
+      margin-bottom: 16px;
+    }
+
+    .pivot-section label {
+      display: block;
+      font-size: 12px;
+      color: #666;
+      margin-bottom: 4px;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pivot-section select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      font-size: 13px;
+      outline: none;
+    }
+
+    .pivot-section select:focus {
+      border-color: #1a73e8;
+    }
+
+    .pivot-preview {
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: 12px;
+      max-height: 200px;
+      overflow: auto;
+    }
+
+    .pivot-preview table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    .pivot-preview th, .pivot-preview td {
+      padding: 4px 8px;
+      border: 1px solid #e0e0e0;
+      text-align: left;
+    }
+
+    .pivot-preview th {
+      background: #e8f0fe;
+      font-weight: 500;
+    }
+
+    /* ── Toasts ── */
+    .toast {
+      position: fixed;
+      bottom: 60px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #333;
+      color: #fff;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      z-index: 5000;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+    }
+
+    .toast.show { opacity: 1; }
+
+    /* ── Responsive ── */
+    @media (max-width: 768px) {
+      .app-header {
+        padding: 4px 8px;
+        min-height: 40px;
+      }
+
+      .app-logo { width: 28px; height: 28px; font-size: 15px; }
+
+      .app-title {
+        font-size: 14px;
+        width: 120px;
+      }
+
+      .app-menu-bar {
+        padding: 0 8px;
+        overflow-x: auto;
+        min-height: 26px;
+      }
+
+      .app-menu-item {
+        font-size: 12px;
+        padding: 3px 8px;
+      }
+
+      .btn {
+        padding: 5px 10px;
+        font-size: 12px;
+      }
+
+      .btn span.btn-label {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .app-header-actions .btn:nth-child(n+3) {
+        display: none;
+      }
+
+      .app-menu-item:nth-child(n+5) {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- Header -->
+    <div class="app-header">
+      <div class="app-logo">S</div>
+      <div class="app-title-area">
+        <input class="app-title" value="Untitled spreadsheet" id="docTitle"
+               onfocus="this.select()" />
+      </div>
+      <div class="app-header-actions">
+        <button class="btn" onclick="showImport()" title="Import file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span class="btn-label">Import</span>
+        </button>
+        <button class="btn" onclick="showExportMenu(this)" title="Export file">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span class="btn-label">Export</span>
+        </button>
+        <button class="btn" onclick="showPivotTable()" title="Pivot table">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="3" x2="9" y2="21"/>
+          </svg>
+          <span class="btn-label">Pivot</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Menu Bar -->
+    <div class="app-menu-bar">
+      <div class="app-menu-item" onclick="toggleMenu(this, 'file')">File
+        <div class="dropdown-menu" id="menu-file">
+          <div class="dropdown-item" onclick="newSpreadsheet()">New <span class="shortcut"></span></div>
+          <div class="dropdown-item" onclick="showImport()">Import...</div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="exportCSV()">Export as CSV</div>
+          <div class="dropdown-item" onclick="exportTSV()">Export as TSV</div>
+          <div class="dropdown-item" onclick="exportXLSX()">Export as XLSX</div>
+          <div class="dropdown-item" onclick="exportJSON()">Export as JSON</div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="printSheet()">Print <span class="shortcut">Ctrl+P</span></div>
+        </div>
+      </div>
+      <div class="app-menu-item" onclick="toggleMenu(this, 'edit')">Edit
+        <div class="dropdown-menu" id="menu-edit">
+          <div class="dropdown-item" onclick="ss.undo()">Undo <span class="shortcut">Ctrl+Z</span></div>
+          <div class="dropdown-item" onclick="ss.redo()">Redo <span class="shortcut">Ctrl+Y</span></div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="ss.copy()">Copy <span class="shortcut">Ctrl+C</span></div>
+          <div class="dropdown-item" onclick="ss.cut()">Cut <span class="shortcut">Ctrl+X</span></div>
+          <div class="dropdown-item" onclick="ss.paste()">Paste <span class="shortcut">Ctrl+V</span></div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="ss.deleteSelection()">Delete</div>
+          <div class="dropdown-item" onclick="ss.showFindReplace()">Find <span class="shortcut">Ctrl+F</span></div>
+          <div class="dropdown-item" onclick="ss.showFindReplace(true)">Find & Replace <span class="shortcut">Ctrl+H</span></div>
+        </div>
+      </div>
+      <div class="app-menu-item" onclick="toggleMenu(this, 'view')">View
+        <div class="dropdown-menu" id="menu-view">
+          <div class="dropdown-item" onclick="ss.freezeRows(ss.activeRow+1)">Freeze rows</div>
+          <div class="dropdown-item" onclick="ss.freezeCols(ss.activeCol+1)">Freeze columns</div>
+          <div class="dropdown-item" onclick="ss.freezeRows(0);ss.freezeCols(0)">Unfreeze all</div>
+        </div>
+      </div>
+      <div class="app-menu-item" onclick="toggleMenu(this, 'insert')">Insert
+        <div class="dropdown-menu" id="menu-insert">
+          <div class="dropdown-item" onclick="ss.insertRowAbove()">Row above</div>
+          <div class="dropdown-item" onclick="ss.insertRowBelow()">Row below</div>
+          <div class="dropdown-item" onclick="ss.insertColLeft()">Column left</div>
+          <div class="dropdown-item" onclick="ss.insertColRight()">Column right</div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="ss.addSheet()">New sheet</div>
+        </div>
+      </div>
+      <div class="app-menu-item" onclick="toggleMenu(this, 'data')">Data
+        <div class="dropdown-menu" id="menu-data">
+          <div class="dropdown-item" onclick="ss.sortAscending()">Sort A → Z</div>
+          <div class="dropdown-item" onclick="ss.sortDescending()">Sort Z → A</div>
+          <div class="dropdown-sep"></div>
+          <div class="dropdown-item" onclick="showPivotTable()">Pivot table...</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Spreadsheet -->
+    <div id="spreadsheet"></div>
+  </div>
+
+  <!-- Import Modal -->
+  <div class="modal-overlay" id="importModal">
+    <div class="modal" style="width: 480px;">
+      <h3>Import File</h3>
+      <div class="drop-zone" id="dropZone"
+           ondragover="event.preventDefault(); this.classList.add('dragover')"
+           ondragleave="this.classList.remove('dragover')"
+           ondrop="handleDrop(event)"
+           onclick="document.getElementById('fileInput').click()">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#aaa" stroke-width="1.5" style="margin-bottom:8px">
+          <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <p>Drop a file here or click to browse</p>
+        <p class="formats">Supports: .csv, .tsv, .xlsx, .xls, .json</p>
+      </div>
+      <input type="file" id="fileInput" accept=".csv,.tsv,.xlsx,.xls,.json,.txt" style="display:none" onchange="handleFileSelect(this.files[0])">
+      <div class="modal-actions">
+        <button class="btn" onclick="hideImport()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pivot Table Modal -->
+  <div class="modal-overlay pivot-modal" id="pivotModal">
+    <div class="modal">
+      <h3>Create Pivot Table</h3>
+      <p style="font-size:13px; color:#666; margin-bottom:16px;">
+        Summarize your data by selecting row, column, value, and aggregation fields.
+      </p>
+      <div class="pivot-section">
+        <label>Rows (Group by)</label>
+        <select id="pivotRows"></select>
+      </div>
+      <div class="pivot-section">
+        <label>Columns (Optional)</label>
+        <select id="pivotCols"><option value="">— None —</option></select>
+      </div>
+      <div class="pivot-section">
+        <label>Values</label>
+        <select id="pivotValues"></select>
+      </div>
+      <div class="pivot-section">
+        <label>Aggregation</label>
+        <select id="pivotAgg">
+          <option value="sum">SUM</option>
+          <option value="count">COUNT</option>
+          <option value="average">AVERAGE</option>
+          <option value="min">MIN</option>
+          <option value="max">MAX</option>
+        </select>
+      </div>
+      <div class="pivot-preview" id="pivotPreview" style="display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn" onclick="hidePivot()">Cancel</button>
+        <button class="btn" onclick="previewPivot()">Preview</button>
+        <button class="btn primary" onclick="createPivot()">Create</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Export Dropdown (appended dynamically) -->
+
+  <script src="../dist/sheets.js"></script>
+  <script>
+    // ── Initialize Spreadsheet ──
+    const ss = new SheetsLib.Spreadsheet('#spreadsheet', {
+      rows: 1000,
+      cols: 26,
+      toolbar: true,
+      formulaBar: true,
+      sheetTabs: true,
+    });
+
+    // Sample data
+    ss.setData([
+      ['Product', 'Region', 'Quarter', 'Sales', 'Units', 'Cost'],
+      ['Widget A', 'North', 'Q1', 12500, 250, 8750],
+      ['Widget A', 'South', 'Q1', 9800, 196, 6860],
+      ['Widget A', 'East', 'Q1', 11200, 224, 7840],
+      ['Widget A', 'West', 'Q1', 8900, 178, 6230],
+      ['Widget B', 'North', 'Q1', 15600, 390, 10920],
+      ['Widget B', 'South', 'Q1', 13400, 335, 9380],
+      ['Widget B', 'East', 'Q1', 14100, 352, 9870],
+      ['Widget B', 'West', 'Q1', 11700, 292, 8190],
+      ['Widget A', 'North', 'Q2', 13800, 276, 9660],
+      ['Widget A', 'South', 'Q2', 10500, 210, 7350],
+      ['Widget A', 'East', 'Q2', 12400, 248, 8680],
+      ['Widget A', 'West', 'Q2', 9600, 192, 6720],
+      ['Widget B', 'North', 'Q2', 16900, 422, 11830],
+      ['Widget B', 'South', 'Q2', 14200, 355, 9940],
+      ['Widget B', 'East', 'Q2', 15300, 382, 10710],
+      ['Widget B', 'West', 'Q2', 12800, 320, 8960],
+      ['Widget C', 'North', 'Q1', 7500, 150, 5250],
+      ['Widget C', 'South', 'Q1', 6200, 124, 4340],
+      ['Widget C', 'East', 'Q1', 8100, 162, 5670],
+      ['Widget C', 'West', 'Q1', 5800, 116, 4060],
+    ], 0, 0);
+
+    // Style headers
+    const headerSel = { startRow: 0, startCol: 0, endRow: 0, endCol: 5, forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(this.startRow, c); } };
+    ss.activeSheet.setRangeStyle(headerSel, { bold: true, bgColor: '#1a73e8', textColor: '#ffffff' });
+
+    // Number format for Sales and Cost columns
+    for (let r = 1; r <= 20; r++) {
+      ss.activeSheet.setCellStyle(r, 3, { numberFormat: '$#,##0' });
+      ss.activeSheet.setCellStyle(r, 5, { numberFormat: '$#,##0' });
+    }
+
+    // Add some formulas
+    ss.activeSheet.setCellValue(22, 0, 'Totals:');
+    ss.activeSheet.setCellStyle(22, 0, { bold: true });
+    ss.activeSheet.setCellFormula(22, 3, '=SUM(D2:D21)');
+    ss.activeSheet.setCellFormula(22, 4, '=SUM(E2:E21)');
+    ss.activeSheet.setCellFormula(22, 5, '=SUM(F2:F21)');
+    ss.activeSheet.setCellStyle(22, 3, { bold: true, numberFormat: '$#,##0' });
+    ss.activeSheet.setCellStyle(22, 4, { bold: true, numberFormat: '#,##0' });
+    ss.activeSheet.setCellStyle(22, 5, { bold: true, numberFormat: '$#,##0' });
+
+    ss.activeSheet.setCellValue(23, 0, 'Avg Sales:');
+    ss.activeSheet.setCellFormula(23, 3, '=AVERAGE(D2:D21)');
+    ss.activeSheet.setCellStyle(23, 3, { numberFormat: '$#,##0.00' });
+
+    // Auto-fit first column
+    ss.activeSheet.setColWidth(0, 100);
+    ss.activeSheet.setColWidth(1, 80);
+    ss.activeSheet.setColWidth(2, 80);
+    ss.activeSheet.setColWidth(3, 100);
+    ss.activeSheet.setColWidth(4, 80);
+    ss.activeSheet.setColWidth(5, 100);
+
+    ss.recalculate();
+    ss.render();
+
+    // ── Menu System ──
+    let activeMenu = null;
+
+    function toggleMenu(el, id) {
+      const menu = document.getElementById('menu-' + id);
+      closeAllMenus();
+      if (menu && menu.style.display !== 'block') {
+        menu.style.display = 'block';
+        activeMenu = menu;
+        setTimeout(() => {
+          document.addEventListener('click', closeAllMenus, { once: true });
+        }, 0);
+      }
+    }
+
+    function closeAllMenus() {
+      document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
+      activeMenu = null;
+    }
+
+    // ── Export Menu ──
+    function showExportMenu(btn) {
+      const rect = btn.getBoundingClientRect();
+      let menu = document.getElementById('exportMenu');
+      if (!menu) {
+        menu = document.createElement('div');
+        menu.id = 'exportMenu';
+        menu.className = 'dropdown-menu';
+        menu.innerHTML = `
+          <div class="dropdown-item" onclick="exportCSV()">Export as CSV (.csv)</div>
+          <div class="dropdown-item" onclick="exportTSV()">Export as TSV (.tsv)</div>
+          <div class="dropdown-item" onclick="exportXLSX()">Export as XLSX (.xlsx)</div>
+          <div class="dropdown-item" onclick="exportJSON()">Export as JSON (.json)</div>
+        `;
+        document.body.appendChild(menu);
+      }
+      menu.style.position = 'fixed';
+      menu.style.top = rect.bottom + 'px';
+      menu.style.left = rect.left + 'px';
+      menu.style.display = 'block';
+      setTimeout(() => document.addEventListener('click', () => { menu.style.display = 'none'; }, { once: true }), 0);
+    }
+
+    // ── File Operations ──
+    function newSpreadsheet() {
+      if (confirm('Create a new spreadsheet? Unsaved changes will be lost.')) {
+        ss.destroy();
+        location.reload();
+      }
+    }
+
+    function showImport() { document.getElementById('importModal').classList.add('show'); }
+    function hideImport() { document.getElementById('importModal').classList.remove('show'); }
+
+    function handleDrop(e) {
+      e.preventDefault();
+      e.target.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFileSelect(file);
+    }
+
+    function handleFileSelect(file) {
+      if (!file) return;
+      const ext = file.name.split('.').pop().toLowerCase();
+      const reader = new FileReader();
+
+      if (ext === 'xlsx' || ext === 'xls') {
+        reader.onload = (e) => {
+          try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
+            loadArrayData(json, file.name);
+            toast('Imported ' + file.name + ' (' + json.length + ' rows)');
+          } catch (err) {
+            toast('Error reading XLSX: ' + err.message);
+          }
+        };
+        reader.readAsArrayBuffer(file);
+      } else if (ext === 'json') {
+        reader.onload = (e) => {
+          try {
+            const data = JSON.parse(e.target.result);
+            if (data.sheets) {
+              ss.fromJSON(data);
+            } else if (Array.isArray(data)) {
+              loadArrayData(data, file.name);
+            }
+            toast('Imported ' + file.name);
+          } catch (err) {
+            toast('Error reading JSON: ' + err.message);
+          }
+        };
+        reader.readAsText(file);
+      } else {
+        // CSV or TSV
+        reader.onload = (e) => {
+          const delimiter = ext === 'tsv' ? '\t' : ',';
+          const rows = SheetsLib.parseCSV(e.target.result, delimiter);
+          loadArrayData(rows, file.name);
+          toast('Imported ' + file.name + ' (' + rows.length + ' rows)');
+        };
+        reader.readAsText(file);
+      }
+
+      hideImport();
+      document.getElementById('fileInput').value = '';
+    }
+
+    function loadArrayData(rows, fileName) {
+      // Clear current sheet
+      const sheet = ss.activeSheet;
+      sheet.cells.clear();
+
+      for (let r = 0; r < rows.length; r++) {
+        if (!Array.isArray(rows[r])) continue;
+        for (let c = 0; c < rows[r].length; c++) {
+          sheet.setCellValue(r, c, rows[r][c]);
+        }
+      }
+
+      // Expand columns if needed
+      if (rows[0] && rows[0].length > sheet.colCount) {
+        sheet.colCount = rows[0].length + 5;
+      }
+
+      // Bold first row as header
+      if (rows.length > 0) {
+        const range = { startRow: 0, startCol: 0, endRow: 0, endCol: (rows[0].length || 1) - 1,
+          forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
+        sheet.setRangeStyle(range, { bold: true, bgColor: '#e8eaed' });
+      }
+
+      document.getElementById('docTitle').value = fileName.replace(/\.\w+$/, '');
+      ss.recalculate();
+      ss.selectionManager.select(0, 0);
+      ss.renderer.scrollTo(0, 0);
+      ss.render();
+    }
+
+    // ── Export Functions ──
+    function getTitle() {
+      return document.getElementById('docTitle').value || 'spreadsheet';
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function exportCSV() {
+      const csv = ss.exportCSV(',');
+      downloadBlob(new Blob([csv], { type: 'text/csv' }), getTitle() + '.csv');
+      toast('Exported as CSV');
+    }
+
+    function exportTSV() {
+      const tsv = ss.exportCSV('\t');
+      downloadBlob(new Blob([tsv], { type: 'text/tab-separated-values' }), getTitle() + '.tsv');
+      toast('Exported as TSV');
+    }
+
+    function exportXLSX() {
+      try {
+        const wb = XLSX.utils.book_new();
+        for (const sheet of ss.sheets) {
+          const used = sheet.getUsedRange();
+          if (!used) { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), sheet.name); continue; }
+          const data = [];
+          for (let r = used.startRow; r <= used.endRow; r++) {
+            const row = [];
+            for (let c = used.startCol; c <= used.endCol; c++) {
+              const val = sheet.getCellValue(r, c);
+              row.push(val === null ? '' : val);
+            }
+            data.push(row);
+          }
+          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), sheet.name);
+        }
+        XLSX.writeFile(wb, getTitle() + '.xlsx');
+        toast('Exported as XLSX');
+      } catch (err) {
+        toast('Error exporting XLSX: ' + err.message);
+      }
+    }
+
+    function exportJSON() {
+      const json = JSON.stringify(ss.toJSON(), null, 2);
+      downloadBlob(new Blob([json], { type: 'application/json' }), getTitle() + '.json');
+      toast('Exported as JSON');
+    }
+
+    function printSheet() {
+      window.print();
+    }
+
+    // ── Pivot Table ──
+    function showPivotTable() {
+      const sheet = ss.activeSheet;
+      const used = sheet.getUsedRange();
+      if (!used || used.endRow < 1) { toast('No data for pivot table'); return; }
+
+      // Get headers from first row
+      const headers = [];
+      for (let c = used.startCol; c <= used.endCol; c++) {
+        const val = sheet.getCellValue(0, c);
+        headers.push({ col: c, name: val ? String(val) : 'Column ' + (c + 1) });
+      }
+
+      const rowSel = document.getElementById('pivotRows');
+      const colSel = document.getElementById('pivotCols');
+      const valSel = document.getElementById('pivotValues');
+
+      rowSel.innerHTML = '';
+      colSel.innerHTML = '<option value="">— None —</option>';
+      valSel.innerHTML = '';
+
+      for (const h of headers) {
+        rowSel.innerHTML += `<option value="${h.col}">${h.name}</option>`;
+        colSel.innerHTML += `<option value="${h.col}">${h.name}</option>`;
+        valSel.innerHTML += `<option value="${h.col}">${h.name}</option>`;
+      }
+
+      // Default: first col for rows, last numeric col for values
+      if (headers.length >= 2) {
+        valSel.value = headers[headers.length - 1].col;
+      }
+
+      document.getElementById('pivotPreview').style.display = 'none';
+      document.getElementById('pivotModal').classList.add('show');
+    }
+
+    function hidePivot() {
+      document.getElementById('pivotModal').classList.remove('show');
+    }
+
+    function buildPivotData() {
+      const sheet = ss.activeSheet;
+      const used = sheet.getUsedRange();
+      if (!used) return null;
+
+      const rowCol = parseInt(document.getElementById('pivotRows').value);
+      const colCol = document.getElementById('pivotCols').value ? parseInt(document.getElementById('pivotCols').value) : null;
+      const valCol = parseInt(document.getElementById('pivotValues').value);
+      const aggType = document.getElementById('pivotAgg').value;
+
+      // Collect data (skip header row)
+      const groups = new Map();
+      const colValues = new Set();
+
+      for (let r = 1; r <= used.endRow; r++) {
+        const rowKey = String(sheet.getCellValue(r, rowCol) || '');
+        const colKey = colCol !== null ? String(sheet.getCellValue(r, colCol) || '') : '_total';
+        const value = sheet.getCellValue(r, valCol);
+        const numVal = typeof value === 'number' ? value : parseFloat(value) || 0;
+
+        if (colKey !== '_total') colValues.add(colKey);
+
+        const key = rowKey + '|||' + colKey;
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(numVal);
+      }
+
+      // Aggregate
+      const aggregate = (arr) => {
+        if (arr.length === 0) return 0;
+        switch (aggType) {
+          case 'sum': return arr.reduce((a, b) => a + b, 0);
+          case 'count': return arr.length;
+          case 'average': return arr.reduce((a, b) => a + b, 0) / arr.length;
+          case 'min': return Math.min(...arr);
+          case 'max': return Math.max(...arr);
+        }
+        return 0;
+      };
+
+      // Build pivot table
+      const rowKeys = [...new Set([...groups.keys()].map(k => k.split('|||')[0]))].sort();
+      const colKeys = colCol !== null ? [...colValues].sort() : ['_total'];
+
+      const rowHeader = sheet.getCellValue(0, rowCol) || 'Row';
+      const valHeader = sheet.getCellValue(0, valCol) || 'Value';
+      const headers = [String(rowHeader)];
+
+      if (colCol !== null) {
+        headers.push(...colKeys, 'Grand Total');
+      } else {
+        headers.push(aggType.toUpperCase() + ' of ' + valHeader);
+      }
+
+      const rows = [];
+      for (const rk of rowKeys) {
+        const row = [rk];
+        let grandTotal = [];
+        for (const ck of colKeys) {
+          const key = rk + '|||' + ck;
+          const vals = groups.get(key) || [];
+          row.push(aggregate(vals));
+          grandTotal.push(...vals);
+        }
+        if (colCol !== null) {
+          row.push(aggregate(grandTotal));
+        }
+        rows.push(row);
+      }
+
+      // Grand total row
+      const totalRow = ['Grand Total'];
+      for (const ck of colKeys) {
+        const all = [];
+        for (const rk of rowKeys) {
+          const key = rk + '|||' + ck;
+          all.push(...(groups.get(key) || []));
+        }
+        totalRow.push(aggregate(all));
+      }
+      if (colCol !== null) {
+        const allVals = [];
+        for (const vals of groups.values()) allVals.push(...vals);
+        totalRow.push(aggregate(allVals));
+      }
+      rows.push(totalRow);
+
+      return { headers, rows };
+    }
+
+    function previewPivot() {
+      const data = buildPivotData();
+      if (!data) return;
+
+      const preview = document.getElementById('pivotPreview');
+      let html = '<table><thead><tr>';
+      for (const h of data.headers) html += `<th>${h}</th>`;
+      html += '</tr></thead><tbody>';
+      for (const row of data.rows) {
+        html += '<tr>';
+        for (let i = 0; i < row.length; i++) {
+          const val = typeof row[i] === 'number' ? row[i].toLocaleString(undefined, { maximumFractionDigits: 2 }) : row[i];
+          html += `<td>${val}</td>`;
+        }
+        html += '</tr>';
+      }
+      html += '</tbody></table>';
+      preview.innerHTML = html;
+      preview.style.display = 'block';
+    }
+
+    function createPivot() {
+      const data = buildPivotData();
+      if (!data) return;
+
+      // Create pivot on a new sheet
+      const sheet = ss.addSheet('Pivot Table');
+
+      // Write headers
+      for (let c = 0; c < data.headers.length; c++) {
+        sheet.setCellValue(0, c, data.headers[c]);
+        sheet.setCellStyle(0, c, { bold: true, bgColor: '#4285f4', textColor: '#fff' });
+      }
+
+      // Write data
+      for (let r = 0; r < data.rows.length; r++) {
+        for (let c = 0; c < data.rows[r].length; c++) {
+          sheet.setCellValue(r + 1, c, data.rows[r][c]);
+          if (c > 0 && typeof data.rows[r][c] === 'number') {
+            sheet.setCellStyle(r + 1, c, { numberFormat: '#,##0.00' });
+          }
+        }
+        // Bold grand total row
+        if (r === data.rows.length - 1) {
+          for (let c = 0; c < data.rows[r].length; c++) {
+            sheet.setCellStyle(r + 1, c, { bold: true, bgColor: '#e8eaed' });
+          }
+        }
+      }
+
+      // Auto-fit columns
+      for (let c = 0; c < data.headers.length; c++) {
+        sheet.setColWidth(c, Math.max(100, data.headers[c].length * 10));
+      }
+
+      if (ss.sheetTabs) ss.sheetTabs.update();
+      ss.recalculate();
+      ss.render();
+      hidePivot();
+      toast('Pivot table created on new sheet');
+    }
+
+    // ── Toast ──
+    function toast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2500);
+    }
+
+    // ── Keyboard shortcut for Ctrl+P ──
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'p') {
+        e.preventDefault();
+        printSheet();
+      }
+    });
+  </script>
+</body>
+</html>

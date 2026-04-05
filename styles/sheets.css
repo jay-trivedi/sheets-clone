@@ -1,0 +1,667 @@
+/* ── Container ── */
+.sheets-container {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13px;
+  color: #333;
+  background: #fff;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.sheets-container * { box-sizing: border-box; }
+
+/* ── Toolbar ── */
+.sheets-toolbar {
+  display: flex;
+  align-items: center;
+  padding: 2px 8px;
+  gap: 2px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f0f4f9;
+  min-height: 40px;
+  flex-wrap: wrap;
+  overflow: hidden;
+}
+
+.sheets-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.sheets-toolbar-sep {
+  width: 1px;
+  height: 24px;
+  background: #dadce0;
+  margin: 0 4px;
+}
+
+.sheets-toolbar-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 0 5px;
+  font-size: 13px;
+  color: #444;
+  transition: background 0.1s;
+}
+
+.sheets-toolbar-btn:hover {
+  background: #d3d3d3;
+}
+
+.sheets-toolbar-btn:active {
+  background: #c0c0c0;
+}
+
+.sheets-toolbar-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sheets-toolbar-select {
+  height: 28px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 12px;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  max-width: 120px;
+}
+
+.sheets-toolbar-select:hover {
+  border-color: #bbb;
+}
+
+.sheets-color-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px 5px;
+  font-size: 14px;
+  color: #444;
+  position: relative;
+}
+
+.sheets-color-btn:hover { background: #d3d3d3; }
+
+/* ── Formula Bar ── */
+.sheets-formula-bar {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid #e0e0e0;
+  height: 30px;
+  background: #fff;
+  padding: 0;
+}
+
+.sheets-name-box {
+  width: 80px;
+  height: 100%;
+  border: none;
+  border-right: 1px solid #e0e0e0;
+  padding: 0 8px;
+  font-size: 12px;
+  text-align: center;
+  outline: none;
+  background: #fff;
+  font-family: Arial, sans-serif;
+}
+
+.sheets-name-box:focus {
+  background: #e8f0fe;
+}
+
+.sheets-fx-label {
+  padding: 0 8px;
+  color: #888;
+  font-style: italic;
+  font-size: 13px;
+  border-right: 1px solid #e0e0e0;
+  line-height: 30px;
+}
+
+.sheets-formula-input {
+  flex: 1;
+  height: 100%;
+  border: none;
+  padding: 0 8px;
+  font-size: 13px;
+  outline: none;
+  font-family: Arial, sans-serif;
+}
+
+.sheets-formula-input:focus {
+  background: #fff;
+}
+
+.sheets-formula-input.editing {
+  background: #e8f0fe;
+}
+
+/* ── Grid Area ── */
+.sheets-grid-area {
+  position: relative;
+  overflow: hidden;
+  cursor: cell;
+}
+
+.sheets-canvas {
+  display: block;
+}
+
+/* ── Cell Editor ── */
+.sheets-cell-editor {
+  position: absolute;
+  z-index: 10;
+  border: 2px solid #1a73e8;
+  outline: none;
+  resize: none;
+  overflow: hidden;
+  padding: 2px 4px;
+  font-family: Arial, sans-serif;
+  font-size: 10pt;
+  line-height: 1.2;
+  background: #fff;
+  box-sizing: border-box;
+  white-space: pre;
+  min-width: 60px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+}
+
+/* ── Sheet Tabs ── */
+.sheets-sheet-tabs {
+  display: flex;
+  align-items: center;
+  height: 30px;
+  border-top: 1px solid #e0e0e0;
+  background: #f0f4f9;
+  padding: 0 4px;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.sheets-add-sheet-btn {
+  width: 28px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sheets-add-sheet-btn:hover { background: #ddd; }
+
+.sheets-tabs-container {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  overflow-x: auto;
+}
+
+.sheets-tab {
+  height: 24px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 4px 4px 0 0;
+  white-space: nowrap;
+  transition: background 0.1s;
+}
+
+.sheets-tab:hover {
+  background: #e0e0e0;
+}
+
+.sheets-tab.active {
+  background: #fff;
+  color: #1a73e8;
+  border-color: #e0e0e0;
+  font-weight: 500;
+}
+
+.sheets-tab-label {
+  pointer-events: none;
+}
+
+.sheets-tab-rename {
+  border: 1px solid #1a73e8;
+  outline: none;
+  padding: 0 4px;
+  font-size: 12px;
+  width: 80px;
+  height: 20px;
+  border-radius: 2px;
+}
+
+/* ── Formula Autocomplete Dropdown ── */
+.sheets-formula-dropdown {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  z-index: 100;
+  min-width: 280px;
+  max-width: 400px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 4px 0;
+}
+
+.sheets-formula-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1.3;
+}
+
+.sheets-formula-dropdown-item:hover,
+.sheets-formula-dropdown-item.selected {
+  background: #e8f0fe;
+}
+
+.sheets-fd-name {
+  font-weight: 600;
+  color: #1a73e8;
+  white-space: nowrap;
+  font-family: 'Roboto Mono', monospace, Consolas, 'Courier New';
+  font-size: 12px;
+  min-width: 90px;
+}
+
+.sheets-fd-desc {
+  color: #666;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Formula Signature Hint ── */
+.sheets-formula-hint {
+  position: absolute;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  z-index: 99;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-family: 'Roboto Mono', monospace, Consolas, 'Courier New';
+  max-width: 500px;
+  line-height: 1.5;
+}
+
+.sheets-fh-func {
+  color: #1a73e8;
+  font-weight: 600;
+}
+
+.sheets-fh-arg {
+  color: #888;
+}
+
+.sheets-fh-arg.current {
+  color: #333;
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #1a73e8;
+  text-underline-offset: 3px;
+}
+
+.sheets-fh-desc {
+  margin-top: 4px;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  color: #666;
+  border-top: 1px solid #eee;
+  padding-top: 4px;
+}
+
+/* ── Context Menu ── */
+.sheets-context-menu {
+  position: fixed;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  padding: 6px 0;
+  z-index: 1000;
+  min-width: 200px;
+  font-size: 13px;
+}
+
+.sheets-context-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 16px;
+  cursor: pointer;
+  color: #333;
+}
+
+.sheets-context-item:hover {
+  background: #e8f0fe;
+}
+
+.sheets-context-shortcut {
+  color: #999;
+  font-size: 12px;
+  margin-left: 24px;
+}
+
+.sheets-context-sep {
+  height: 1px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+
+/* ── Find / Replace ── */
+.sheets-find-replace {
+  position: absolute;
+  top: 8px;
+  right: 24px;
+  background: #fff;
+  border: 1px solid #dadce0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+  padding: 8px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sheets-find-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sheets-find-input {
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+  outline: none;
+  width: 200px;
+}
+
+.sheets-find-input:focus {
+  border-color: #1a73e8;
+}
+
+.sheets-find-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #555;
+}
+
+.sheets-find-btn:hover {
+  background: #e0e0e0;
+}
+
+.sheets-find-count {
+  font-size: 11px;
+  color: #888;
+  min-width: 60px;
+  text-align: center;
+}
+
+/* ── Pivot Table ── */
+.sheets-pivot-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheets-pivot-dialog {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  width: 600px;
+  max-height: 80vh;
+  overflow: auto;
+  padding: 24px;
+}
+
+.sheets-pivot-dialog h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+  color: #333;
+}
+
+.sheets-pivot-section {
+  margin-bottom: 16px;
+}
+
+.sheets-pivot-section label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.sheets-pivot-section select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.sheets-pivot-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.sheets-pivot-actions button {
+  padding: 8px 20px;
+  border: 1px solid #dadce0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.sheets-pivot-actions button.primary {
+  background: #1a73e8;
+  color: #fff;
+  border-color: #1a73e8;
+}
+
+.sheets-pivot-actions button.primary:hover {
+  background: #1557b0;
+}
+
+/* ── Import Modal ── */
+.sheets-import-modal {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.4);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sheets-import-dialog {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  width: 480px;
+  padding: 24px;
+}
+
+.sheets-import-dialog h3 {
+  margin: 0 0 16px;
+  font-size: 18px;
+}
+
+.sheets-drop-zone {
+  border: 2px dashed #dadce0;
+  border-radius: 8px;
+  padding: 40px;
+  text-align: center;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 16px;
+}
+
+.sheets-drop-zone:hover,
+.sheets-drop-zone.dragover {
+  border-color: #1a73e8;
+  background: #e8f0fe;
+  color: #1a73e8;
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .sheets-toolbar {
+    padding: 2px 4px;
+    min-height: 36px;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+
+  .sheets-toolbar-btn {
+    min-width: 32px;
+    height: 32px;
+    padding: 0 4px;
+  }
+
+  .sheets-toolbar-select {
+    max-width: 80px;
+    font-size: 11px;
+  }
+
+  .sheets-toolbar-sep {
+    margin: 0 2px;
+  }
+
+  .sheets-name-box {
+    width: 60px;
+    font-size: 11px;
+  }
+
+  .sheets-formula-bar {
+    height: 28px;
+  }
+
+  .sheets-formula-input {
+    font-size: 12px;
+  }
+
+  .sheets-sheet-tabs {
+    height: 28px;
+  }
+
+  .sheets-tab {
+    padding: 0 10px;
+    font-size: 11px;
+  }
+
+  .sheets-context-menu {
+    min-width: 160px;
+    font-size: 12px;
+  }
+
+  .sheets-find-replace {
+    right: 8px;
+    top: 4px;
+  }
+
+  .sheets-find-input {
+    width: 140px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .sheets-toolbar {
+    min-height: 32px;
+    gap: 0;
+  }
+
+  .sheets-toolbar-group:nth-child(n+4) {
+    display: none;
+  }
+
+  .sheets-toolbar-sep:nth-child(n+7) {
+    display: none;
+  }
+
+  .sheets-formula-bar {
+    height: 26px;
+  }
+
+  .sheets-name-box {
+    width: 50px;
+  }
+}
+
+/* ── Scrollbar styling ── */
+.sheets-container ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.sheets-container ::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+.sheets-container ::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+/* ── Print ── */
+@media print {
+  .sheets-toolbar,
+  .sheets-formula-bar,
+  .sheets-sheet-tabs,
+  .sheets-find-replace {
+    display: none !important;
+  }
+}
