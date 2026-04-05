@@ -6,7 +6,7 @@
   <title>Sheets — Google Sheets Clone</title>
   <!-- SheetJS for XLSX import/export -->
   <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-  <link rel="stylesheet" href="../styles/sheets.css">
+  <link rel="stylesheet" href="sheets.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
@@ -501,7 +501,7 @@
 
   <!-- Export Dropdown (appended dynamically) -->
 
-  <script src="../dist/sheets.js"></script>
+  <script src="sheets.js"></script>
   <script>
     // ── Initialize Spreadsheet ──
     const ss = new SheetsLib.Spreadsheet('#spreadsheet', {
@@ -571,6 +571,68 @@
 
     ss.recalculate();
     ss.render();
+
+    // ── Auto-load XLSX template ──
+    (async function loadXLSXTemplate() {
+      try {
+        const resp = await fetch('importTemplate.xlsx');
+        if (!resp.ok) return;
+        const data = new Uint8Array(await resp.arrayBuffer());
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        // Clear default data and load all sheets
+        ss.sheets = [];
+
+        for (let i = 0; i < workbook.SheetNames.length; i++) {
+          const sheetName = workbook.SheetNames[i];
+          const wsData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+
+          const sheet = ss.addSheet(sheetName);
+
+          // Determine actual data dimensions (skip trailing empty rows/cols)
+          let maxRow = 0, maxCol = 0;
+          for (let r = 0; r < wsData.length; r++) {
+            for (let c = 0; c < wsData[r].length; c++) {
+              if (wsData[r][c] !== '' && wsData[r][c] !== null && wsData[r][c] !== undefined) {
+                if (r > maxRow) maxRow = r;
+                if (c > maxCol) maxCol = c;
+              }
+            }
+          }
+
+          for (let r = 0; r <= maxRow; r++) {
+            if (!wsData[r]) continue;
+            for (let c = 0; c <= maxCol; c++) {
+              const val = wsData[r][c];
+              if (val !== '' && val !== null && val !== undefined) {
+                sheet.setCellValue(r, c, val);
+              }
+            }
+          }
+
+          // Style first data row as header
+          if (maxCol >= 0) {
+            const hRange = { startRow: 0, startCol: 0, endRow: 0, endCol: maxCol,
+              forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
+            sheet.setRangeStyle(hRange, { bold: true, bgColor: '#e8eaed' });
+          }
+
+          // Expand column count if needed
+          if (maxCol >= sheet.colCount) sheet.colCount = maxCol + 5;
+        }
+
+        ss.activeSheetIndex = 0;
+        document.getElementById('docTitle').value = 'importTemplate';
+        if (ss.sheetTabs) ss.sheetTabs.update();
+        ss.selectionManager.select(0, 0);
+        ss.renderer.scrollTo(0, 0);
+        ss.recalculate();
+        ss.render();
+        toast('Loaded importTemplate.xlsx (' + workbook.SheetNames.length + ' sheets)');
+      } catch (e) {
+        console.log('No template to auto-load:', e.message);
+      }
+    })();
 
     // ── Menu System ──
     let activeMenu = null;
@@ -643,10 +705,7 @@
           try {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
-            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-            const json = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: '' });
-            loadArrayData(json, file.name);
-            toast('Imported ' + file.name + ' (' + json.length + ' rows)');
+            loadWorkbook(workbook, file.name);
           } catch (err) {
             toast('Error reading XLSX: ' + err.message);
           }
@@ -658,10 +717,12 @@
             const data = JSON.parse(e.target.result);
             if (data.sheets) {
               ss.fromJSON(data);
+              document.getElementById('docTitle').value = file.name.replace(/\.\w+$/, '');
+              if (ss.sheetTabs) ss.sheetTabs.update();
+              toast('Imported ' + file.name);
             } else if (Array.isArray(data)) {
               loadArrayData(data, file.name);
             }
-            toast('Imported ' + file.name);
           } catch (err) {
             toast('Error reading JSON: ' + err.message);
           }
@@ -682,10 +743,62 @@
       document.getElementById('fileInput').value = '';
     }
 
+    // Load a multi-sheet XLSX workbook
+    function loadWorkbook(workbook, fileName) {
+      // Clear all existing sheets
+      ss.sheets = [];
+
+      let totalRows = 0;
+      for (let i = 0; i < workbook.SheetNames.length; i++) {
+        const sheetName = workbook.SheetNames[i];
+        const wsData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+        const sheet = ss.addSheet(sheetName);
+
+        let maxRow = 0, maxCol = 0;
+        for (let r = 0; r < wsData.length; r++) {
+          for (let c = 0; c < (wsData[r] || []).length; c++) {
+            if (wsData[r][c] !== '' && wsData[r][c] !== null && wsData[r][c] !== undefined) {
+              if (r > maxRow) maxRow = r;
+              if (c > maxCol) maxCol = c;
+            }
+          }
+        }
+
+        for (let r = 0; r <= maxRow; r++) {
+          if (!wsData[r]) continue;
+          for (let c = 0; c <= maxCol; c++) {
+            const val = wsData[r][c];
+            if (val !== '' && val !== null && val !== undefined) {
+              sheet.setCellValue(r, c, val);
+            }
+          }
+        }
+
+        // Style first row as header
+        if (maxCol >= 0) {
+          const hRange = { startRow: 0, startCol: 0, endRow: 0, endCol: maxCol,
+            forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
+          sheet.setRangeStyle(hRange, { bold: true, bgColor: '#e8eaed' });
+        }
+        if (maxCol >= sheet.colCount) sheet.colCount = maxCol + 5;
+        totalRows += maxRow + 1;
+      }
+
+      ss.activeSheetIndex = 0;
+      document.getElementById('docTitle').value = fileName.replace(/\.\w+$/, '');
+      if (ss.sheetTabs) ss.sheetTabs.update();
+      ss.selectionManager.select(0, 0);
+      ss.renderer.scrollTo(0, 0);
+      ss.recalculate();
+      ss.render();
+      toast('Imported ' + fileName + ' (' + workbook.SheetNames.length + ' sheets, ' + totalRows + ' rows)');
+    }
+
+    // Load a single-sheet array (CSV/TSV)
     function loadArrayData(rows, fileName) {
-      // Clear current sheet
-      const sheet = ss.activeSheet;
-      sheet.cells.clear();
+      // Clear ALL sheets, start fresh with one
+      ss.sheets = [];
+      const sheet = ss.addSheet('Sheet1');
 
       for (let r = 0; r < rows.length; r++) {
         if (!Array.isArray(rows[r])) continue;
@@ -694,12 +807,10 @@
         }
       }
 
-      // Expand columns if needed
       if (rows[0] && rows[0].length > sheet.colCount) {
         sheet.colCount = rows[0].length + 5;
       }
 
-      // Bold first row as header
       if (rows.length > 0) {
         const range = { startRow: 0, startCol: 0, endRow: 0, endCol: (rows[0].length || 1) - 1,
           forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
@@ -707,9 +818,11 @@
       }
 
       document.getElementById('docTitle').value = fileName.replace(/\.\w+$/, '');
-      ss.recalculate();
+      ss.activeSheetIndex = 0;
+      if (ss.sheetTabs) ss.sheetTabs.update();
       ss.selectionManager.select(0, 0);
       ss.renderer.scrollTo(0, 0);
+      ss.recalculate();
       ss.render();
     }
 
