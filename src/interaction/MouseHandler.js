@@ -73,6 +73,22 @@ export default class MouseHandler {
     const renderer = this.spreadsheet.renderer;
     const ss = this.spreadsheet;
 
+    // Data validation dropdown
+    const dvCell = renderer.getCellAtPoint(x, y);
+    if (dvCell && x > 0) {
+      const sheet = ss.activeSheet;
+      if (sheet) {
+        const cellData = sheet.getCell(dvCell.row, dvCell.col);
+        if (cellData && cellData.validation && cellData.validation.type === 'list' && cellData.validation.showDropdown) {
+          const cellRect = renderer._getCellRect(sheet, dvCell.row, dvCell.col);
+          if (x >= cellRect.x + cellRect.w - 18) {
+            ss.dataValidation.showDropdown(dvCell.row, dvCell.col);
+            return;
+          }
+        }
+      }
+    }
+
     // Format painter
     if (ss._formatPainterStyle) {
       const cell = renderer.getCellAtPoint(x, y);

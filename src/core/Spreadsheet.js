@@ -19,6 +19,9 @@ import ContextMenu from '../ui/ContextMenu.js';
 import FindReplace from '../ui/FindReplace.js';
 import StatusBar from '../ui/StatusBar.js';
 import CommandManager from '../features/CommandManager.js';
+import DataValidationManager from '../features/DataValidation.js';
+import NamedRangesManager from '../features/NamedRanges.js';
+import ConditionalFormatUI from '../features/ConditionalFormatUI.js';
 import NumberFormat from '../format/NumberFormat.js';
 import { parseCSV, generateCSV } from '../io/CSV.js';
 
@@ -64,6 +67,9 @@ export default class Spreadsheet {
     this.contextMenu = this.options.contextMenu ? new ContextMenu(this) : null;
     this.findReplace = new FindReplace(this);
     this.statusBar = new StatusBar(this);
+    this.dataValidation = new DataValidationManager(this);
+    this.namedRanges = new NamedRangesManager(this);
+    this.conditionalFormatUI = new ConditionalFormatUI(this);
 
     // Build DOM first so UI components are initialized
     this._buildDOM(container);
@@ -1021,6 +1027,44 @@ export default class Spreadsheet {
 
   showFindReplace(replace = false) {
     this.findReplace.show(replace);
+  }
+
+  // ── Data Validation ──
+
+  showDataValidation() {
+    this.dataValidation.showDialog();
+  }
+
+  setDataValidation(rangeStr, rule) {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const range = CellRange.fromString(rangeStr);
+    if (!range) return;
+    this.dataValidation.setValidation(sheet, range.startRow, range.startCol, range.endRow, range.endCol, rule);
+  }
+
+  // ── Named Ranges ──
+
+  showNamedRanges() {
+    this.namedRanges.showDialog();
+  }
+
+  defineNamedRange(name, rangeStr) {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const range = CellRange.fromString(rangeStr);
+    if (!range) return;
+    this.namedRanges.define(name, sheet.id, range);
+  }
+
+  getNamedRange(name) {
+    return this.namedRanges.resolve(name);
+  }
+
+  // ── Conditional Formatting ──
+
+  showConditionalFormatting() {
+    this.conditionalFormatUI.showDialog();
   }
 
   // ── Formula recalculation ──

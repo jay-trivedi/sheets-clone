@@ -340,6 +340,19 @@ export default class Renderer {
           }
         }
 
+        // Data validation dropdown arrow
+        if (cell && cell.validation && cell.validation.type === 'list' && cell.validation.showDropdown) {
+          const ax = rect.x + cellW - 16;
+          const ay = rect.y + (cellH - 8) / 2;
+          ctx.fillStyle = '#666';
+          ctx.beginPath();
+          ctx.moveTo(ax + 2, ay + 2);
+          ctx.lineTo(ax + 10, ay + 2);
+          ctx.lineTo(ax + 6, ay + 7);
+          ctx.closePath();
+          ctx.fill();
+        }
+
         // Borders
         if (style) {
           this._drawCellBorders(ctx, rect.x, rect.y, cellW, cellH, style);
