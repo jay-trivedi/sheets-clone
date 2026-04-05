@@ -145,6 +145,7 @@ export default class KeyboardHandler {
 
         // ── Typing a printable character: ENTER mode (replaces cell content) ──
         if (e.key.length === 1 && !ctrl && !e.altKey && editor) {
+          e.preventDefault();
           editor.beginEnter(e.key);
         }
         break;
