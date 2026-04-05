@@ -578,6 +578,23 @@ export default class FormulaHelper {
       ref = cellRefToString(c1, r1) + ':' + cellRefToString(c2, r2);
     }
 
+    // Cross-sheet prefix: if clicking on a different sheet than the one being edited
+    const ss = this.spreadsheet;
+    const editSheetId = ss._formulaEditSheetId || (ss.editor ? ss.sheets.find(s => {
+      const er = ss.editor.editRow, ec = ss.editor.editCol;
+      return er >= 0 && s.getCell(er, ec);
+    })?.id : null) || ss.activeSheet?.id;
+    const viewSheetId = ss.activeSheet?.id;
+
+    if (editSheetId && viewSheetId && editSheetId !== viewSheetId) {
+      const viewSheet = ss.activeSheet;
+      const name = viewSheet.name;
+      // Quote sheet name if it contains spaces or special chars
+      const needsQuote = /[^A-Za-z0-9_]/.test(name);
+      const prefix = needsQuote ? "'" + name + "'!" : name + '!';
+      ref = prefix + ref;
+    }
+
     const newText = text.substring(0, start) + ref + text.substring(end);
     textarea.value = newText;
     const newPos = start + ref.length;

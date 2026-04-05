@@ -218,7 +218,9 @@ export default class Editor {
     if (!this.isActive) return;
 
     const ss = this.spreadsheet;
-    const sheet = ss.activeSheet;
+    // Use the editing sheet, not the currently viewed sheet (may differ during cross-sheet formula editing)
+    const editSheetId = ss._formulaEditSheetId || ss.activeSheet?.id;
+    const sheet = ss.getSheetById(editSheetId) || ss.activeSheet;
     if (!sheet) { this._close(); return; }
     const value = this.textarea.value;
 
@@ -257,6 +259,17 @@ export default class Editor {
     this.editCol = -1;
 
     const ss = this.spreadsheet;
+
+    // If we switched sheets during formula editing, switch back to the editing sheet
+    if (ss._formulaEditSheetId) {
+      const editSheet = ss.getSheetById(ss._formulaEditSheetId);
+      if (editSheet) {
+        ss.activeSheetIndex = ss.sheets.indexOf(editSheet);
+        if (ss.sheetTabs) ss.sheetTabs.update();
+      }
+      ss._formulaEditSheetId = null;
+    }
+
     if (ss.formulaBar) ss.formulaBar.setEditing(false);
     if (ss.formulaHelper) ss.formulaHelper.hide();
     if (ss.container) ss.container.focus();

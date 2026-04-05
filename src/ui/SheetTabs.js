@@ -50,6 +50,16 @@ export default class SheetTabs {
 
       // Click to switch
       tab.addEventListener('click', (e) => {
+        if (ss.editor && ss.editor.isActive && ss.editor.isFormulaMode) {
+          // During formula editing: switch visible sheet but keep editor open
+          // Store which sheet we're viewing for cross-sheet ref insertion
+          ss._formulaEditSheetId = ss.activeSheet.id;
+          ss.activeSheetIndex = ss.sheets.findIndex(s => s.id === sheet.id);
+          ss.renderer.scrollTo(0, 0);
+          ss.render();
+          this.update();
+          return;
+        }
         ss.setActiveSheet(sheet.id);
         this.update();
       });
