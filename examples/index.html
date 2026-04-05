@@ -644,7 +644,7 @@
         reader.onload = (e) => {
           try {
             const data = new Uint8Array(e.target.result);
-            const workbook = XLSX.read(data, { type: 'array' });
+            const workbook = XLSX.read(data, { type: 'array', cellStyles: true, cellFormula: true });
             loadWorkbook(workbook, file.name);
           } catch (err) {
             toast('Error reading XLSX: ' + err.message);
@@ -683,43 +683,104 @@
       document.getElementById('fileInput').value = '';
     }
 
-    // Load a multi-sheet XLSX workbook
+    // Load a multi-sheet XLSX workbook (preserves formulas + formatting)
     function loadWorkbook(workbook, fileName) {
-      // Clear all existing sheets
       ss.sheets = [];
+
+      // Column index to letter
+      function colLetter(c) {
+        let s = '';
+        let n = c;
+        while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
+        return s;
+      }
 
       let totalRows = 0;
       for (let i = 0; i < workbook.SheetNames.length; i++) {
         const sheetName = workbook.SheetNames[i];
-        const wsData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
+        const ws = workbook.Sheets[sheetName];
         const sheet = ss.addSheet(sheetName);
 
-        let maxRow = 0, maxCol = 0;
-        for (let r = 0; r < wsData.length; r++) {
-          for (let c = 0; c < (wsData[r] || []).length; c++) {
-            if (wsData[r][c] !== '' && wsData[r][c] !== null && wsData[r][c] !== undefined) {
-              if (r > maxRow) maxRow = r;
-              if (c > maxCol) maxCol = c;
+        // Get range
+        const ref = ws['!ref'];
+        if (!ref) continue;
+        const range = XLSX.utils.decode_range(ref);
+        const maxRow = range.e.r;
+        const maxCol = range.e.c;
+
+        // Read each cell directly to preserve formulas and formatting
+        for (let r = range.s.r; r <= maxRow; r++) {
+          for (let c = range.s.c; c <= maxCol; c++) {
+            const addr = colLetter(c) + (r + 1);
+            const cell = ws[addr];
+            if (!cell) continue;
+
+            // Formula
+            if (cell.f) {
+              sheet.setCellFormula(r, c, '=' + cell.f);
+            } else if (cell.v !== undefined && cell.v !== null) {
+              sheet.setCellValue(r, c, cell.v);
+            }
+
+            // Number format
+            if (cell.z && cell.z !== 'General') {
+              sheet.setCellStyle(r, c, { numberFormat: cell.z });
+            }
+
+            // Cell style (SheetJS stores in cell.s when cellStyles:true)
+            if (cell.s) {
+              const style = {};
+              const font = cell.s.font || {};
+              if (font.bold) style.bold = true;
+              if (font.italic) style.italic = true;
+              if (font.underline) style.underline = true;
+              if (font.strike) style.strikethrough = true;
+              if (font.sz) style.fontSize = font.sz;
+              if (font.name) style.fontFamily = font.name;
+              if (font.color && font.color.rgb) style.textColor = '#' + font.color.rgb.slice(-6);
+
+              const fill = cell.s.fill || cell.s.fgColor || {};
+              if (fill.fgColor && fill.fgColor.rgb) style.bgColor = '#' + fill.fgColor.rgb.slice(-6);
+              if (fill.bgColor && fill.bgColor.rgb && !style.bgColor) style.bgColor = '#' + fill.bgColor.rgb.slice(-6);
+
+              const align = cell.s.alignment || {};
+              if (align.horizontal) style.hAlign = align.horizontal;
+              if (align.vertical) style.vAlign = align.vertical;
+              if (align.wrapText) style.wrap = true;
+
+              if (Object.keys(style).length > 0) {
+                sheet.setCellStyle(r, c, style);
+              }
             }
           }
         }
 
-        for (let r = 0; r <= maxRow; r++) {
-          if (!wsData[r]) continue;
-          for (let c = 0; c <= maxCol; c++) {
-            const val = wsData[r][c];
-            if (val !== '' && val !== null && val !== undefined) {
-              sheet.setCellValue(r, c, val);
-            }
+        // Column widths
+        if (ws['!cols']) {
+          for (let c = 0; c < ws['!cols'].length; c++) {
+            const col = ws['!cols'][c];
+            if (col && col.wpx) sheet.setColWidth(c, col.wpx);
+            else if (col && col.wch) sheet.setColWidth(c, col.wch * 8);
           }
         }
 
-        // Style first row as header
-        if (maxCol >= 0) {
-          const hRange = { startRow: 0, startCol: 0, endRow: 0, endCol: maxCol,
-            forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
-          sheet.setRangeStyle(hRange, { bold: true, bgColor: '#e8eaed' });
+        // Row heights
+        if (ws['!rows']) {
+          for (let r = 0; r < ws['!rows'].length; r++) {
+            const row = ws['!rows'][r];
+            if (row && row.hpx) sheet.setRowHeight(r, row.hpx);
+            else if (row && row.hpt) sheet.setRowHeight(r, row.hpt * 1.33);
+          }
         }
+
+        // Merged cells
+        if (ws['!merges']) {
+          for (const merge of ws['!merges']) {
+            const mRange = new SheetsLib.CellRange(merge.s.r, merge.s.c, merge.e.r, merge.e.c);
+            sheet.addMerge(mRange);
+          }
+        }
+
         if (maxCol >= sheet.colCount) sheet.colCount = maxCol + 5;
         totalRows += maxRow + 1;
       }
@@ -794,20 +855,72 @@
 
     function exportXLSX() {
       try {
+        function colLetter(c) {
+          let s = '', n = c;
+          while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
+          return s;
+        }
+
         const wb = XLSX.utils.book_new();
-        for (const sheet of ss.sheets) {
-          const used = sheet.getUsedRange();
-          if (!used) { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), sheet.name); continue; }
-          const data = [];
+        for (const sht of ss.sheets) {
+          const used = sht.getUsedRange();
+          if (!used) { XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([[]]), sht.name); continue; }
+
+          // Build worksheet cell-by-cell to preserve formulas
+          const ws = {};
+          ws['!ref'] = XLSX.utils.encode_range(
+            { r: used.startRow, c: used.startCol },
+            { r: used.endRow, c: used.endCol }
+          );
+
           for (let r = used.startRow; r <= used.endRow; r++) {
-            const row = [];
             for (let c = used.startCol; c <= used.endCol; c++) {
-              const val = sheet.getCellValue(r, c);
-              row.push(val === null ? '' : val);
+              const cell = sht.getCell(r, c);
+              if (!cell || cell.isEmpty) continue;
+              const addr = colLetter(c) + (r + 1);
+              const wsCell = {};
+
+              if (cell.formula) {
+                wsCell.f = cell.formula.startsWith('=') ? cell.formula.substring(1) : cell.formula;
+                wsCell.v = cell.computedValue;
+                wsCell.t = typeof cell.computedValue === 'number' ? 'n' : 's';
+              } else if (typeof cell.computedValue === 'number') {
+                wsCell.v = cell.computedValue;
+                wsCell.t = 'n';
+              } else if (typeof cell.computedValue === 'boolean') {
+                wsCell.v = cell.computedValue;
+                wsCell.t = 'b';
+              } else {
+                wsCell.v = cell.displayValue;
+                wsCell.t = 's';
+              }
+
+              // Number format
+              const style = cell.style;
+              if (style && style.numberFormat && style.numberFormat !== 'General') {
+                wsCell.z = style.numberFormat;
+              }
+
+              ws[addr] = wsCell;
             }
-            data.push(row);
           }
-          XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(data), sheet.name);
+
+          // Merged cells
+          if (sht.merges && sht.merges.length > 0) {
+            ws['!merges'] = sht.merges.map(m => {
+              const mr = SheetsLib.CellRange.fromString(m);
+              return mr ? { s: { r: mr.startRow, c: mr.startCol }, e: { r: mr.endRow, c: mr.endCol } } : null;
+            }).filter(Boolean);
+          }
+
+          // Column widths
+          const cols = [];
+          for (let c = used.startCol; c <= used.endCol; c++) {
+            cols.push({ wpx: sht.getColWidth(c) });
+          }
+          ws['!cols'] = cols;
+
+          XLSX.utils.book_append_sheet(wb, ws, sht.name);
         }
         XLSX.writeFile(wb, getTitle() + '.xlsx');
         toast('Exported as XLSX');
