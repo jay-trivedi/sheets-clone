@@ -1,5 +1,6 @@
 import Cell, { CellStyle } from './Cell.js';
 import CellRange from './CellRange.js';
+import Range from '../api/Range.js';
 import { DEFAULT_COL_WIDTH, DEFAULT_ROW_HEIGHT, DEFAULT_ROWS, DEFAULT_COLS, CELL_TYPE } from '../utils/constants.js';
 import { cellKey, keyToRC, generateId, indexToCol, parseCellRef } from '../utils/helpers.js';
 
@@ -373,6 +374,87 @@ export default class Sheet {
     }
     if (minR === Infinity) return null;
     return new CellRange(minR, minC, maxR, maxC);
+  }
+
+  // ── Google Sheets-compatible API ──
+
+  /**
+   * getRange — supports 4 signatures (matching Google Apps Script):
+   *   getRange('A1')              A1 notation, single cell
+   *   getRange('A1:B5')           A1 notation, range
+   *   getRange(row, col)          1-based row/col, single cell
+   *   getRange(row, col, numRows, numCols)  1-based, rectangle
+   */
+  getRange(rowOrA1, col, numRows, numCols) {
+    if (typeof rowOrA1 === 'string') {
+      return Range.fromA1Notation(this, rowOrA1);
+    }
+    // 1-based to 0-based
+    const r = rowOrA1 - 1;
+    const c = (col || 1) - 1;
+    return new Range(this, r, c, numRows || 1, numCols || 1);
+  }
+
+  getDataRange() {
+    const used = this.getUsedRange();
+    if (!used) return new Range(this, 0, 0, 1, 1);
+    return new Range(this, used.startRow, used.startCol,
+      used.endRow - used.startRow + 1, used.endCol - used.startCol + 1);
+  }
+
+  getLastRow() {
+    let maxR = 0;
+    for (const key of this.cells.keys()) {
+      const r = key >> 16;
+      if (r + 1 > maxR) maxR = r + 1;
+    }
+    return maxR; // 1-based
+  }
+
+  getLastColumn() {
+    let maxC = 0;
+    for (const key of this.cells.keys()) {
+      const c = key & 0xffff;
+      if (c + 1 > maxC) maxC = c + 1;
+    }
+    return maxC; // 1-based
+  }
+
+  getMaxRows() { return this.rowCount; }
+  getMaxColumns() { return this.colCount; }
+
+  appendRow(values) {
+    const r = this.getLastRow(); // next empty row (0-based = r, since getLastRow is 1-based)
+    for (let c = 0; c < values.length; c++) {
+      this.setCellValue(r, c, values[c]);
+    }
+    return this;
+  }
+
+  getSheetId() { return this.id; }
+  getSheetName() { return this.name; }
+  getName() { return this.name; }
+  setName(name) { this.name = name; return this; }
+
+  getFrozenRows() { return this.frozenRows; }
+  getFrozenColumns() { return this.frozenCols; }
+  setFrozenRows(n) { this.frozenRows = n; }
+  setFrozenColumns(n) { this.frozenCols = n; }
+
+  sort(columnPosition, ascending = true) {
+    const dataRange = this.getDataRange();
+    dataRange.sort({ column: typeof columnPosition === 'number' ? columnPosition : 1, ascending });
+    return this;
+  }
+
+  clearContents() {
+    for (const [key, cell] of this.cells) { cell.clearContent(); }
+    return this;
+  }
+
+  clearFormats() {
+    for (const [key, cell] of this.cells) { cell.clearFormat(); }
+    return this;
   }
 
   autoFitColWidth(col, ctx) {

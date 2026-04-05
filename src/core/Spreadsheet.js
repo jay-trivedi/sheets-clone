@@ -1,5 +1,5 @@
 import EventBus from '../utils/EventBus.js';
-import { el, cellKey, keyToRC, indexToCol, deepClone, parseCellRef } from '../utils/helpers.js';
+import { el, cellKey, keyToRC, indexToCol, deepClone, parseCellRef, cellRefToString } from '../utils/helpers.js';
 import { DEFAULT_ROWS, DEFAULT_COLS, CELL_TYPE } from '../utils/constants.js';
 import Sheet from './Sheet.js';
 import Cell, { CellStyle } from './Cell.js';
@@ -146,6 +146,98 @@ export default class Spreadsheet {
     this._resizeObserver.observe(this.gridArea);
 
     this.container.focus();
+  }
+
+  // ── Google Sheets-compatible API ──
+
+  /** Get a sheet by name (Apps Script: getSheetByName) */
+  sheet(name) {
+    return this.sheets.find(s => s.name === name) || null;
+  }
+
+  /** Get active range as a Range object */
+  getActiveRange() {
+    const sel = this.selection;
+    if (!sel || !this.activeSheet) return null;
+    return this.activeSheet.getRange(sel.startRow + 1, sel.startCol + 1,
+      sel.endRow - sel.startRow + 1, sel.endCol - sel.startCol + 1);
+  }
+
+  /** Get active cell as a Range object */
+  getActiveCell() {
+    if (!this.activeSheet) return null;
+    return this.activeSheet.getRange(this.activeRow + 1, this.activeCol + 1);
+  }
+
+  /** Get range on active sheet using A1 notation */
+  getRange(a1Notation) {
+    if (!this.activeSheet) return null;
+    return this.activeSheet.getRange(a1Notation);
+  }
+
+  /** Navigate to a cell — switches sheet + scrolls + selects */
+  navigateTo(sheetName, a1Ref) {
+    if (sheetName) {
+      const sheet = this.getSheetByName(sheetName);
+      if (sheet) this.setActiveSheet(sheet.id);
+    }
+    if (a1Ref) {
+      const parsed = parseCellRef(a1Ref);
+      if (parsed) {
+        this.selectionManager.select(parsed.row, parsed.col);
+        this.renderer.ensureCellVisible(parsed.row, parsed.col);
+      }
+    }
+    this.render();
+  }
+
+  /** Batch mode — defers recalculate and render until done */
+  batch(fn) {
+    const origRecalc = this.recalculate.bind(this);
+    const origRender = this.render.bind(this);
+    this.recalculate = () => {};
+    this.render = () => {};
+    try {
+      fn();
+    } finally {
+      this.recalculate = origRecalc;
+      this.render = origRender;
+    }
+    this.recalculate();
+    this.render();
+  }
+
+  /** Full state snapshot for agent context */
+  getState() {
+    const sheet = this.activeSheet;
+    const sel = this.selectionManager;
+    const editor = this.editor;
+
+    return {
+      activeSheet: sheet ? sheet.name : null,
+      sheets: this.sheets.map(s => ({
+        name: s.name,
+        id: s.id,
+        rowCount: s.rowCount,
+        colCount: s.colCount,
+        lastRow: s.getLastRow(),
+        lastColumn: s.getLastColumn(),
+        frozenRows: s.frozenRows,
+        frozenCols: s.frozenCols,
+      })),
+      selection: {
+        range: this.selection ? this.selection.toString() : null,
+        activeCell: sheet ? cellRefToString(sel.activeCol, sel.activeRow) : null,
+        activeRow: sel.activeRow + 1,  // 1-based
+        activeCol: sel.activeCol + 1,
+      },
+      editing: {
+        active: editor ? editor.isActive : false,
+        mode: editor ? editor.mode : 'ready',
+        value: editor && editor.isActive ? editor.textarea.value : null,
+        cell: editor && editor.isActive ? cellRefToString(editor.editCol, editor.editRow) : null,
+      },
+    };
   }
 
   // ── Sheets ──

@@ -242,6 +242,15 @@ export default class Editor {
     this._close();
     ss.recalculate();
     ss.render();
+
+    // Emit edit event (Google Sheets onEdit compatible)
+    ss.emit('edit', {
+      range: sheet.getRange(this.editRow + 1, this.editCol + 1),
+      source: ss,
+      value: value,
+      oldValue: oldValue,
+      sheet: sheet,
+    });
   }
 
   cancel() {
