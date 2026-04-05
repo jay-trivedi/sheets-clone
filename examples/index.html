@@ -512,67 +512,95 @@
       sheetTabs: true,
     });
 
-    // Sample data
-    ss.setData([
-      ['Product', 'Region', 'Quarter', 'Sales', 'Units', 'Cost'],
-      ['Widget A', 'North', 'Q1', 12500, 250, 8750],
-      ['Widget A', 'South', 'Q1', 9800, 196, 6860],
-      ['Widget A', 'East', 'Q1', 11200, 224, 7840],
-      ['Widget A', 'West', 'Q1', 8900, 178, 6230],
-      ['Widget B', 'North', 'Q1', 15600, 390, 10920],
-      ['Widget B', 'South', 'Q1', 13400, 335, 9380],
-      ['Widget B', 'East', 'Q1', 14100, 352, 9870],
-      ['Widget B', 'West', 'Q1', 11700, 292, 8190],
-      ['Widget A', 'North', 'Q2', 13800, 276, 9660],
-      ['Widget A', 'South', 'Q2', 10500, 210, 7350],
-      ['Widget A', 'East', 'Q2', 12400, 248, 8680],
-      ['Widget A', 'West', 'Q2', 9600, 192, 6720],
-      ['Widget B', 'North', 'Q2', 16900, 422, 11830],
-      ['Widget B', 'South', 'Q2', 14200, 355, 9940],
-      ['Widget B', 'East', 'Q2', 15300, 382, 10710],
-      ['Widget B', 'West', 'Q2', 12800, 320, 8960],
-      ['Widget C', 'North', 'Q1', 7500, 150, 5250],
-      ['Widget C', 'South', 'Q1', 6200, 124, 4340],
-      ['Widget C', 'East', 'Q1', 8100, 162, 5670],
-      ['Widget C', 'West', 'Q1', 5800, 116, 4060],
-    ], 0, 0);
+    // ── Persistence: save to localStorage, restore on refresh ──
+    const STORAGE_KEY = 'sheets-demo-state';
+    const TITLE_KEY = 'sheets-demo-title';
 
-    // Style headers
-    const headerSel = { startRow: 0, startCol: 0, endRow: 0, endCol: 5, forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(this.startRow, c); } };
-    ss.activeSheet.setRangeStyle(headerSel, { bold: true, bgColor: '#1a73e8', textColor: '#ffffff' });
-
-    // Number format for Sales and Cost columns
-    for (let r = 1; r <= 20; r++) {
-      ss.activeSheet.setCellStyle(r, 3, { numberFormat: '$#,##0' });
-      ss.activeSheet.setCellStyle(r, 5, { numberFormat: '$#,##0' });
+    function saveState() {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(ss.toJSON()));
+        localStorage.setItem(TITLE_KEY, document.getElementById('docTitle').value);
+      } catch (e) {}
     }
 
-    // Add some formulas
-    ss.activeSheet.setCellValue(22, 0, 'Totals:');
-    ss.activeSheet.setCellStyle(22, 0, { bold: true });
-    ss.activeSheet.setCellFormula(22, 3, '=SUM(D2:D21)');
-    ss.activeSheet.setCellFormula(22, 4, '=SUM(E2:E21)');
-    ss.activeSheet.setCellFormula(22, 5, '=SUM(F2:F21)');
-    ss.activeSheet.setCellStyle(22, 3, { bold: true, numberFormat: '$#,##0' });
-    ss.activeSheet.setCellStyle(22, 4, { bold: true, numberFormat: '#,##0' });
-    ss.activeSheet.setCellStyle(22, 5, { bold: true, numberFormat: '$#,##0' });
+    // Try restoring saved state
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      try {
+        ss.fromJSON(JSON.parse(saved));
+        const title = localStorage.getItem(TITLE_KEY);
+        if (title) document.getElementById('docTitle').value = title;
+      } catch (e) {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
 
-    ss.activeSheet.setCellValue(23, 0, 'Avg Sales:');
-    ss.activeSheet.setCellFormula(23, 3, '=AVERAGE(D2:D21)');
-    ss.activeSheet.setCellStyle(23, 3, { numberFormat: '$#,##0.00' });
-
-    // Auto-fit first column
-    ss.activeSheet.setColWidth(0, 100);
-    ss.activeSheet.setColWidth(1, 80);
-    ss.activeSheet.setColWidth(2, 80);
-    ss.activeSheet.setColWidth(3, 100);
-    ss.activeSheet.setColWidth(4, 80);
-    ss.activeSheet.setColWidth(5, 100);
+    // If no saved state (first visit), load sample data
+    if (!saved) {
+      ss.setData([
+        ['Product', 'Region', 'Quarter', 'Sales', 'Units', 'Cost'],
+        ['Widget A', 'North', 'Q1', 12500, 250, 8750],
+        ['Widget A', 'South', 'Q1', 9800, 196, 6860],
+        ['Widget A', 'East', 'Q1', 11200, 224, 7840],
+        ['Widget A', 'West', 'Q1', 8900, 178, 6230],
+        ['Widget B', 'North', 'Q1', 15600, 390, 10920],
+        ['Widget B', 'South', 'Q1', 13400, 335, 9380],
+        ['Widget B', 'East', 'Q1', 14100, 352, 9870],
+        ['Widget B', 'West', 'Q1', 11700, 292, 8190],
+        ['Widget A', 'North', 'Q2', 13800, 276, 9660],
+        ['Widget A', 'South', 'Q2', 10500, 210, 7350],
+        ['Widget A', 'East', 'Q2', 12400, 248, 8680],
+        ['Widget A', 'West', 'Q2', 9600, 192, 6720],
+        ['Widget B', 'North', 'Q2', 16900, 422, 11830],
+        ['Widget B', 'South', 'Q2', 14200, 355, 9940],
+        ['Widget B', 'East', 'Q2', 15300, 382, 10710],
+        ['Widget B', 'West', 'Q2', 12800, 320, 8960],
+        ['Widget C', 'North', 'Q1', 7500, 150, 5250],
+        ['Widget C', 'South', 'Q1', 6200, 124, 4340],
+        ['Widget C', 'East', 'Q1', 8100, 162, 5670],
+        ['Widget C', 'West', 'Q1', 5800, 116, 4060],
+      ], 0, 0);
+      const headerSel = { startRow: 0, startCol: 0, endRow: 0, endCol: 5, forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(this.startRow, c); } };
+      ss.activeSheet.setRangeStyle(headerSel, { bold: true, bgColor: '#1a73e8', textColor: '#ffffff' });
+      for (let r = 1; r <= 20; r++) {
+        ss.activeSheet.setCellStyle(r, 3, { numberFormat: '$#,##0' });
+        ss.activeSheet.setCellStyle(r, 5, { numberFormat: '$#,##0' });
+      }
+      ss.activeSheet.setCellValue(22, 0, 'Totals:');
+      ss.activeSheet.setCellStyle(22, 0, { bold: true });
+      ss.activeSheet.setCellFormula(22, 3, '=SUM(D2:D21)');
+      ss.activeSheet.setCellFormula(22, 4, '=SUM(E2:E21)');
+      ss.activeSheet.setCellFormula(22, 5, '=SUM(F2:F21)');
+      ss.activeSheet.setCellStyle(22, 3, { bold: true, numberFormat: '$#,##0' });
+      ss.activeSheet.setCellStyle(22, 4, { bold: true, numberFormat: '#,##0' });
+      ss.activeSheet.setCellStyle(22, 5, { bold: true, numberFormat: '$#,##0' });
+      ss.activeSheet.setCellValue(23, 0, 'Avg Sales:');
+      ss.activeSheet.setCellFormula(23, 3, '=AVERAGE(D2:D21)');
+      ss.activeSheet.setCellStyle(23, 3, { numberFormat: '$#,##0.00' });
+      ss.activeSheet.setColWidth(0, 100);
+      ss.activeSheet.setColWidth(1, 80);
+      ss.activeSheet.setColWidth(2, 80);
+      ss.activeSheet.setColWidth(3, 100);
+      ss.activeSheet.setColWidth(4, 80);
+      ss.activeSheet.setColWidth(5, 100);
+    }
 
     ss.recalculate();
     ss.render();
 
-    // Demo starts with the sample data above. Use Import to load files.
+    // Auto-save on every edit (debounced)
+    let _saveTimer;
+    function scheduleSave() { clearTimeout(_saveTimer); _saveTimer = setTimeout(saveState, 500); }
+    ss.on('selectionChanged', scheduleSave);
+    ss.on('sheetAdded', scheduleSave);
+    // Patch commit to trigger save
+    const _origCommit = ss.editor.commit.bind(ss.editor);
+    ss.editor.commit = function() { _origCommit(); scheduleSave(); };
+    // Also save on delete, paste, style changes
+    const _origDelete = ss.deleteSelection.bind(ss);
+    ss.deleteSelection = function() { _origDelete(); scheduleSave(); };
+    const _origSetStyle = ss.setStyle.bind(ss);
+    ss.setStyle = function(p) { _origSetStyle(p); scheduleSave(); };
 
     // ── Menu System ──
     let activeMenu = null;
@@ -620,7 +648,8 @@
     // ── File Operations ──
     function newSpreadsheet() {
       if (confirm('Create a new spreadsheet? Unsaved changes will be lost.')) {
-        ss.destroy();
+        localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(TITLE_KEY);
         location.reload();
       }
     }
@@ -793,6 +822,7 @@
       ss.recalculate();
       ss.render();
       toast('Imported ' + fileName + ' (' + workbook.SheetNames.length + ' sheets, ' + totalRows + ' rows)');
+      scheduleSave();
     }
 
     // Load a single-sheet array (CSV/TSV)
@@ -825,6 +855,7 @@
       ss.renderer.scrollTo(0, 0);
       ss.recalculate();
       ss.render();
+      scheduleSave();
     }
 
     // ── Export Functions ──
