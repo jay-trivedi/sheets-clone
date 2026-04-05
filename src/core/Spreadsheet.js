@@ -17,6 +17,7 @@ import FormulaBar from '../ui/FormulaBar.js';
 import SheetTabs from '../ui/SheetTabs.js';
 import ContextMenu from '../ui/ContextMenu.js';
 import FindReplace from '../ui/FindReplace.js';
+import StatusBar from '../ui/StatusBar.js';
 import CommandManager from '../features/CommandManager.js';
 import NumberFormat from '../format/NumberFormat.js';
 import { parseCSV, generateCSV } from '../io/CSV.js';
@@ -62,6 +63,7 @@ export default class Spreadsheet {
     this.sheetTabs = this.options.sheetTabs ? new SheetTabs(this) : null;
     this.contextMenu = this.options.contextMenu ? new ContextMenu(this) : null;
     this.findReplace = new FindReplace(this);
+    this.statusBar = new StatusBar(this);
 
     // Build DOM first so UI components are initialized
     this._buildDOM(container);
@@ -132,10 +134,11 @@ export default class Spreadsheet {
     this.clipboard.init(this.container);
     this.findReplace.init(this.gridArea);
 
-    // Sheet tabs
+    // Sheet tabs + status bar
     if (this.sheetTabs) {
       this.sheetTabs.init(this.container);
     }
+    this.statusBar.init(this.container);
 
     parentContainer.appendChild(this.container);
 
@@ -426,6 +429,88 @@ export default class Spreadsheet {
     this.render();
   }
 
+  // ── Format painter ──
+
+  startFormatPainter() {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const cell = sheet.getCell(this.activeRow, this.activeCol);
+    this._formatPainterStyle = cell && cell.style ? cell.style.clone() : null;
+    if (this.canvas) this.canvas.style.cursor = 'copy';
+  }
+
+  applyFormatPainter(range) {
+    if (!this._formatPainterStyle) return;
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    range.forEach((r, c) => {
+      sheet.setCellStyle(r, c, this._formatPainterStyle);
+    });
+    this._formatPainterStyle = null;
+    if (this.canvas) this.canvas.style.cursor = '';
+    this.render();
+  }
+
+  // ── Paste special ──
+
+  pasteValuesOnly() {
+    const cb = this.clipboard;
+    if (!cb.copiedData) return;
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const sel = this.selectionManager;
+
+    for (const cellData of cb.copiedData.cells) {
+      const r = sel.activeRow + cellData.row;
+      const c = sel.activeCol + cellData.col;
+      if (r >= sheet.rowCount || c >= sheet.colCount) continue;
+      // Only paste computed values, no formulas or styles
+      const val = cellData.value;
+      sheet.setCellValue(r, c, val);
+    }
+    this.recalculate();
+    this.render();
+  }
+
+  // ── Alternating colors (banding) ──
+
+  applyAlternatingColors(color1 = '#ffffff', color2 = '#f3f3f3', headerColor = '#e8eaed') {
+    const sel = this.selection;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet) return;
+
+    for (let r = sel.startRow; r <= sel.endRow; r++) {
+      const bg = r === sel.startRow ? headerColor : (r % 2 === 0 ? color1 : color2);
+      for (let c = sel.startCol; c <= sel.endCol; c++) {
+        sheet.setCellStyle(r, c, { bgColor: bg });
+      }
+      if (r === sel.startRow) {
+        for (let c = sel.startCol; c <= sel.endCol; c++) {
+          sheet.setCellStyle(r, c, { bold: true });
+        }
+      }
+    }
+    this.render();
+  }
+
+  pasteFormatOnly() {
+    const cb = this.clipboard;
+    if (!cb.copiedData) return;
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const sel = this.selectionManager;
+
+    for (const cellData of cb.copiedData.cells) {
+      const r = sel.activeRow + cellData.row;
+      const c = sel.activeCol + cellData.col;
+      if (r >= sheet.rowCount || c >= sheet.colCount) continue;
+      if (cellData.style) {
+        sheet.setCellStyle(r, c, cellData.style);
+      }
+    }
+    this.render();
+  }
+
   adjustDecimals(delta) {
     const cell = this._activeCell();
     const style = cell ? cell.getStyle() : new CellStyle();
@@ -483,6 +568,7 @@ export default class Spreadsheet {
   insertRowAbove() {
     const row = this.selectionManager.activeRow;
     this.activeSheet.insertRows(row);
+    this.emit('change', { changeType: 'INSERT_ROW', source: this });
     this.recalculate();
     this.render();
   }
@@ -490,6 +576,7 @@ export default class Spreadsheet {
   insertRowBelow() {
     const sel = this.selection;
     this.activeSheet.insertRows(sel ? sel.endRow + 1 : this.activeRow + 1);
+    this.emit('change', { changeType: 'INSERT_ROW', source: this });
     this.recalculate();
     this.render();
   }
@@ -497,6 +584,7 @@ export default class Spreadsheet {
   insertColLeft() {
     const col = this.selectionManager.activeCol;
     this.activeSheet.insertCols(col);
+    this.emit('change', { changeType: 'INSERT_COLUMN', source: this });
     this.recalculate();
     this.render();
   }
@@ -504,6 +592,7 @@ export default class Spreadsheet {
   insertColRight() {
     const sel = this.selection;
     this.activeSheet.insertCols(sel ? sel.endCol + 1 : this.activeCol + 1);
+    this.emit('change', { changeType: 'INSERT_COLUMN', source: this });
     this.recalculate();
     this.render();
   }
@@ -514,6 +603,7 @@ export default class Spreadsheet {
     const count = sel.endRow - sel.startRow + 1;
     this.activeSheet.deleteRows(sel.startRow, count);
     this.selectionManager.select(Math.min(sel.startRow, this.activeSheet.rowCount - 1), this.activeCol);
+    this.emit('change', { changeType: 'REMOVE_ROW', source: this });
     this.recalculate();
     this.render();
   }
@@ -524,6 +614,7 @@ export default class Spreadsheet {
     const count = sel.endCol - sel.startCol + 1;
     this.activeSheet.deleteCols(sel.startCol, count);
     this.selectionManager.select(this.activeRow, Math.min(sel.startCol, this.activeSheet.colCount - 1));
+    this.emit('change', { changeType: 'REMOVE_COLUMN', source: this });
     this.recalculate();
     this.render();
   }
@@ -1061,6 +1152,7 @@ export default class Spreadsheet {
     if (this.sheetTabs) this.sheetTabs.destroy();
     if (this.contextMenu) this.contextMenu.destroy();
     if (this.findReplace) this.findReplace.destroy();
+    if (this.statusBar) this.statusBar.destroy();
     if (this._resizeObserver) this._resizeObserver.disconnect();
     if (this.container && this.container.parentElement) {
       this.container.parentElement.removeChild(this.container);

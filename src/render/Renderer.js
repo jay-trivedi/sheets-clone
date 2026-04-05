@@ -270,7 +270,9 @@ export default class Renderer {
             displayText = numberFormat.format(cell.computedValue, effectiveStyle.numberFormat);
           }
 
-          ctx.fillStyle = textColor;
+          // Auto-detect URLs and render as blue+underline
+          const isURL = typeof displayText === 'string' && /^https?:\/\//i.test(displayText);
+          ctx.fillStyle = isURL ? '#1155cc' : textColor;
           ctx.font = effectiveStyle.getFont();
           ctx.textBaseline = 'middle';
 

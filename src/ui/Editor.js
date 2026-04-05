@@ -1,5 +1,5 @@
 import { ROW_HEADER_WIDTH, COL_HEADER_HEIGHT, DEFAULT_FONT_FAMILY } from '../utils/constants.js';
-import { el } from '../utils/helpers.js';
+import { el, cellRefToString } from '../utils/helpers.js';
 
 /*
  * Cell editing state machine (matches Google Sheets behavior):
@@ -189,6 +189,12 @@ export default class Editor {
       ss.formulaBar.setValue(value);
       ss.formulaBar.setEditing(true);
     }
+
+    ss.emit('editingStarted', {
+      cell: this.editRow >= 0 ? cellRefToString(this.editCol, this.editRow) : null,
+      mode: this.mode,
+      sheet: ss.activeSheet,
+    });
   }
 
   // ── Switch to POINT mode (from ENTER or EDIT, for formulas) ──
@@ -281,6 +287,12 @@ export default class Editor {
 
     if (ss.formulaBar) ss.formulaBar.setEditing(false);
     if (ss.formulaHelper) ss.formulaHelper.hide();
+
+    ss.emit('editingStopped', {
+      cell: this.editRow >= 0 ? cellRefToString(this.editCol, this.editRow) : null,
+      committed: this.mode !== MODE.READY, // true if commit, false if cancel
+    });
+
     if (ss.container) ss.container.focus();
   }
 

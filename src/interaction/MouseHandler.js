@@ -73,6 +73,15 @@ export default class MouseHandler {
     const renderer = this.spreadsheet.renderer;
     const ss = this.spreadsheet;
 
+    // Format painter
+    if (ss._formatPainterStyle) {
+      const cell = renderer.getCellAtPoint(x, y);
+      if (cell) {
+        ss.applyFormatPainter(ss.selection || { forEach: (fn) => fn(cell.row, cell.col) });
+        return;
+      }
+    }
+
     // Filter arrow click
     const filterCol = renderer.isFilterArrow(x, y);
     if (filterCol !== null) {

@@ -129,7 +129,9 @@ export default class KeyboardHandler {
           switch (e.key.toLowerCase()) {
             case 'c': e.preventDefault(); ss.copy(); break;
             case 'x': e.preventDefault(); ss.cut(); break;
-            case 'v': break; // Let paste event handle it
+            case 'v':
+              if (shift) { e.preventDefault(); ss.pasteValuesOnly(); }
+              break; // Regular Ctrl+V: let paste event handle it
             case 'z': e.preventDefault(); if (shift) ss.redo(); else ss.undo(); break;
             case 'y': e.preventDefault(); ss.redo(); break;
             case 'a': e.preventDefault(); sel.selectAll(); break;

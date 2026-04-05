@@ -20,6 +20,10 @@ export default class Toolbar {
     this._addBtn('Print (Ctrl+P)', ICONS.print, () => window.print());
     this._sep();
 
+    // 3b: Format painter
+    this._addBtn('Paint format', ICONS.formatPainter, () => ss.startFormatPainter());
+    this._sep();
+
     // 4-8: Number formatting
     this._addBtn('Format as currency', '<span style="font-size:13px;font-weight:500">$</span>', () => ss.setStyle({ numberFormat: '$#,##0.00' }));
     this._addBtn('Format as percent', '<span style="font-size:13px;font-weight:500">%</span>', () => ss.setStyle({ numberFormat: '0.00%' }));
@@ -430,5 +434,6 @@ const ICONS = {
   comment: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>`,
   chart: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 17v-4m4 4V9m4 8v-6m4 6v-2"/></svg>`,
   filter: `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 3H2l8 9.46V19l4 2v-8.54L22 3z"/></svg>`,
+  formatPainter: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 4V3c0-.55-.45-1-1-1H5c-.55 0-1 .45-1 1v4c0 .55.45 1 1 1h12c.55 0 1-.45 1-1V6h1v4H9v11c0 .55.45 1 1 1h2c.55 0 1-.45 1-1v-9h8V4h-3z"/></svg>`,
   functions: `<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M5 3h14v2H5zm0 16h14v2H5zm4-6.5L5.5 8H8l2 3 2-3h2.5L11 12.5 14.5 17H12l-2-3-2 3H5.5l3.5-4.5z" transform="scale(0.85) translate(2,2)"/></svg>`,
 };

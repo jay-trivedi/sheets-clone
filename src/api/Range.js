@@ -505,6 +505,145 @@ export default class Range {
     return null;
   }
 
+  // ── Copy/Move ──
+
+  copyTo(destination, options) {
+    const srcVals = this.getValues();
+    const srcFormulas = this.getFormulas();
+    const srcBgs = this.getBackgrounds();
+    const srcWeights = this.getFontWeights();
+
+    for (let r = 0; r < this._nr; r++) {
+      for (let c = 0; c < this._nc; c++) {
+        const destR = destination._r + r;
+        const destC = destination._c + c;
+        if (options && options.contentsOnly) {
+          destination._sheet.setCellValue(destR, destC, srcVals[r][c]);
+        } else if (options && options.formatOnly) {
+          destination._sheet.setCellStyle(destR, destC, {
+            bgColor: srcBgs[r][c],
+            bold: srcWeights[r][c] === 'bold',
+          });
+        } else {
+          if (srcFormulas[r][c]) {
+            destination._sheet.setCellFormula(destR, destC, srcFormulas[r][c]);
+          } else {
+            destination._sheet.setCellValue(destR, destC, srcVals[r][c]);
+          }
+          // Copy basic formatting
+          const srcCell = this._sheet.getCell(this._r + r, this._c + c);
+          if (srcCell && srcCell.style) {
+            destination._sheet.setCellStyle(destR, destC, srcCell.style.clone());
+          }
+        }
+      }
+    }
+  }
+
+  moveTo(target) {
+    this.copyTo(target);
+    this.clear();
+  }
+
+  // ── Utilities ──
+
+  randomize() {
+    const vals = this.getValues();
+    // Fisher-Yates shuffle rows
+    for (let i = vals.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [vals[i], vals[j]] = [vals[j], vals[i]];
+    }
+    this.setValues(vals);
+    return this;
+  }
+
+  removeDuplicates(columnsToCompare) {
+    const vals = this.getValues();
+    const seen = new Set();
+    const unique = [];
+    const cols = columnsToCompare || Array.from({ length: this._nc }, (_, i) => i);
+
+    for (const row of vals) {
+      const key = cols.map(c => String(row[c])).join('\0');
+      if (!seen.has(key)) {
+        seen.add(key);
+        unique.push(row);
+      }
+    }
+
+    // Write back unique rows, clear remaining
+    for (let r = 0; r < this._nr; r++) {
+      for (let c = 0; c < this._nc; c++) {
+        if (r < unique.length) {
+          this._sheet.setCellValue(this._r + r, this._c + c, unique[r][c]);
+        } else {
+          this._sheet.setCellValue(this._r + r, this._c + c, null);
+        }
+      }
+    }
+    return this;
+  }
+
+  trimWhitespace() {
+    this._forEachCell((r, c) => {
+      const val = this._sheet.getCellValue(r, c);
+      if (typeof val === 'string') {
+        this._sheet.setCellValue(r, c, val.trim());
+      }
+    });
+    return this;
+  }
+
+  getDataRegion() {
+    // Expand to contiguous data region
+    let minR = this._r, maxR = this._r, minC = this._c, maxC = this._c;
+    const sheet = this._sheet;
+
+    // Expand down
+    while (maxR < sheet.rowCount - 1) {
+      let hasData = false;
+      for (let c = minC; c <= maxC; c++) {
+        const cell = sheet.getCell(maxR + 1, c);
+        if (cell && !cell.isEmpty) { hasData = true; break; }
+      }
+      if (!hasData) break;
+      maxR++;
+    }
+    // Expand up
+    while (minR > 0) {
+      let hasData = false;
+      for (let c = minC; c <= maxC; c++) {
+        const cell = sheet.getCell(minR - 1, c);
+        if (cell && !cell.isEmpty) { hasData = true; break; }
+      }
+      if (!hasData) break;
+      minR--;
+    }
+    // Expand right
+    while (maxC < sheet.colCount - 1) {
+      let hasData = false;
+      for (let r = minR; r <= maxR; r++) {
+        const cell = sheet.getCell(r, maxC + 1);
+        if (cell && !cell.isEmpty) { hasData = true; break; }
+      }
+      if (!hasData) break;
+      maxC++;
+    }
+    // Expand left
+    while (minC > 0) {
+      let hasData = false;
+      for (let r = minR; r <= maxR; r++) {
+        const cell = sheet.getCell(r, minC - 1);
+        if (cell && !cell.isEmpty) { hasData = true; break; }
+      }
+      if (!hasData) break;
+      minC--;
+    }
+
+    return new Range(sheet, minR, minC, maxR - minR + 1, maxC - minC + 1);
+  }
+
   // ── Internal helpers ──
 
   _forEachCell(fn) {
