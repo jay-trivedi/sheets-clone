@@ -115,11 +115,20 @@ export default class ClipboardHandler {
       }
     }
 
-    // If cut, clear source
+    // If cut, clear source — also track for undo
     if (this.isCut) {
       for (const cellData of data.cells) {
         const r = srcRange.startRow + cellData.row;
         const c = srcRange.startCol + cellData.col;
+        const srcCell = sheet.getCell(r, c);
+        // Track the source cell clearing so undo restores it
+        ss.commandManager.pushToCurrentBatch({
+          type: 'setCellValue',
+          row: r, col: c,
+          oldValue: srcCell ? srcCell.rawValue : null,
+          oldFormula: srcCell ? srcCell.formula : null,
+          oldStyle: srcCell && srcCell.style ? srcCell.style.clone() : null,
+        });
         sheet.clearCell(r, c);
       }
       this.copiedData = null;
