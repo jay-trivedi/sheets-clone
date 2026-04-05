@@ -307,18 +307,22 @@
   background: transparent;
 }
 
+.sheets-formula-input:focus {
+  background: transparent;
+}
+
 .sheets-formula-input-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   padding: 0 8px;
   font-size: 13px;
   font-family: Arial, sans-serif;
-  line-height: 30px;
+  display: flex;
+  align-items: center;
   pointer-events: none;
   white-space: nowrap;
   overflow: hidden;
   z-index: 0;
-  display: none;
 }
 
 .sheets-formula-input:focus {
@@ -326,7 +330,7 @@
 }
 
 .sheets-formula-input.editing {
-  background: #e8f0fe;
+  background: transparent;
 }
 
 /* ── Grid Area ── */

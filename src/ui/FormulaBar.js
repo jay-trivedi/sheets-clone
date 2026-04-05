@@ -105,11 +105,10 @@ export default class FormulaBar {
     this.nameBox.value = indexToCol(col) + (row + 1);
 
     const cell = sheet.getCell(row, col);
-    if (cell) {
-      this.input.value = cell.formula || cell.displayValue;
-    } else {
-      this.input.value = '';
-    }
+    const val = cell ? (cell.formula || cell.displayValue) : '';
+    this.input.value = val;
+    // Show colored references even when not editing (just viewing)
+    this.updateColorOverlay(val);
   }
 
   setValue(val) {

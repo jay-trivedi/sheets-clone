@@ -93,12 +93,13 @@ export default class Editor {
     const sheet = ss.activeSheet;
     if (!sheet) return;
 
+    this.mode = MODE.ENTER; // set mode BEFORE _openEditor so _syncOverlay sees it
     this._openEditor(sheet, '');
-    this.mode = MODE.ENTER;
     this.textarea.value = initialChar;
     this.textarea.selectionStart = initialChar.length;
     this.textarea.selectionEnd = initialChar.length;
 
+    this._syncOverlay(); // re-sync after setting value
     this._notifyFormulaHelper();
   }
 
@@ -111,8 +112,8 @@ export default class Editor {
     const cell = sheet.getCell(ss.selectionManager.activeRow, ss.selectionManager.activeCol);
     const val = cell ? (cell.formula || cell.displayValue) : '';
 
+    this.mode = MODE.EDIT; // set mode BEFORE _openEditor so _syncOverlay sees it
     this._openEditor(sheet, val);
-    this.mode = MODE.EDIT;
 
     if (cursorAtEnd) {
       this.textarea.selectionStart = this.textarea.value.length;
@@ -125,12 +126,11 @@ export default class Editor {
   // ── Legacy API: begin(value, cursorMode) for backward compat ──
   begin(initialValue = '', cursorMode = false) {
     if (cursorMode) {
-      // F2 / Enter / double-click with existing value → EDIT mode
       const ss = this.spreadsheet;
       const sheet = ss.activeSheet;
       if (!sheet) return;
-      this._openEditor(sheet, initialValue);
       this.mode = MODE.EDIT;
+      this._openEditor(sheet, initialValue);
       this.textarea.selectionStart = this.textarea.value.length;
       this.textarea.selectionEnd = this.textarea.value.length;
       this._notifyFormulaHelper();
@@ -287,7 +287,7 @@ export default class Editor {
   _syncOverlay() {
     const ov = this.colorOverlay;
     const ta = this.textarea;
-    // Match position and size
+    // Match position and size exactly
     ov.style.left = ta.style.left;
     ov.style.top = ta.style.top;
     ov.style.width = ta.style.width;
@@ -300,18 +300,21 @@ export default class Editor {
 
     const fh = this.spreadsheet.formulaHelper;
     if (fh && this.isFormulaMode) {
-      // Make textarea text transparent, show colored overlay
+      // Formula mode: transparent textarea text + colored overlay on top
       ta.style.color = 'transparent';
       ta.style.caretColor = '#000';
+      ta.style.background = 'transparent';
       ov.style.display = 'block';
+      ov.style.background = '#fff';
       ov.innerHTML = fh.getColoredFormulaHTML(ta.value);
     } else {
-      // Normal mode: no overlay
+      // Normal mode: no overlay, normal text color
       const sheet = this.spreadsheet.activeSheet;
       const cell = sheet ? sheet.getCell(this.editRow, this.editCol) : null;
       const style = cell ? cell.getStyle() : null;
       ta.style.color = (style && style.textColor) || '#000';
       ta.style.caretColor = '';
+      ta.style.background = (style && style.bgColor) || '#fff';
       ov.style.display = 'none';
     }
   }
