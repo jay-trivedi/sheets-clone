@@ -756,26 +756,41 @@
               sheet.setCellStyle(r, c, { numberFormat: cell.z });
             }
 
-            // Cell style (SheetJS stores in cell.s when cellStyles:true)
+            // Cell style (SheetJS CDN stores style fields directly on cell.s)
             if (cell.s) {
               const style = {};
-              const font = cell.s.font || {};
-              if (font.bold) style.bold = true;
-              if (font.italic) style.italic = true;
-              if (font.underline) style.underline = true;
-              if (font.strike) style.strikethrough = true;
-              if (font.sz) style.fontSize = font.sz;
-              if (font.name) style.fontFamily = font.name;
-              if (font.color && font.color.rgb) style.textColor = '#' + font.color.rgb.slice(-6);
+              const s = cell.s;
 
-              const fill = cell.s.fill || cell.s.fgColor || {};
-              if (fill.fgColor && fill.fgColor.rgb) style.bgColor = '#' + fill.fgColor.rgb.slice(-6);
-              if (fill.bgColor && fill.bgColor.rgb && !style.bgColor) style.bgColor = '#' + fill.bgColor.rgb.slice(-6);
+              // Font — SheetJS CDN may store at s.font or directly on s
+              const font = s.font || {};
+              if (font.bold || s.bold) style.bold = true;
+              if (font.italic || s.italic) style.italic = true;
+              if (font.underline || s.underline) style.underline = true;
+              if (font.strike || s.strike) style.strikethrough = true;
+              if (font.sz || s.sz) style.fontSize = font.sz || s.sz;
+              if (font.name || s.name) style.fontFamily = font.name || s.name;
+              // Font color
+              const fc = (font.color && font.color.rgb) || (s.color && s.color.rgb);
+              if (fc) style.textColor = '#' + fc.slice(-6);
 
-              const align = cell.s.alignment || {};
+              // Background color — check all possible locations
+              const fgc = s.fgColor || (s.fill && s.fill.fgColor);
+              const bgc = s.bgColor || (s.fill && s.fill.bgColor);
+              if (s.patternType === 'solid' || (s.fill && s.fill.patternType === 'solid')) {
+                if (fgc && fgc.rgb) style.bgColor = '#' + fgc.rgb.slice(-6);
+                else if (bgc && bgc.rgb) style.bgColor = '#' + bgc.rgb.slice(-6);
+              } else {
+                if (fgc && fgc.rgb && fgc.rgb !== '000000') style.bgColor = '#' + fgc.rgb.slice(-6);
+              }
+
+              // Alignment
+              const align = s.alignment || {};
               if (align.horizontal) style.hAlign = align.horizontal;
               if (align.vertical) style.vAlign = align.vertical;
               if (align.wrapText) style.wrap = true;
+
+              // Number format (also check directly on s)
+              if (s.numFmt && s.numFmt !== 'General') style.numberFormat = s.numFmt;
 
               if (Object.keys(style).length > 0) {
                 sheet.setCellStyle(r, c, style);
