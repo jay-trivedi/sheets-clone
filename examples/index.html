@@ -572,67 +572,7 @@
     ss.recalculate();
     ss.render();
 
-    // ── Auto-load XLSX template ──
-    (async function loadXLSXTemplate() {
-      try {
-        const resp = await fetch('importTemplate.xlsx');
-        if (!resp.ok) return;
-        const data = new Uint8Array(await resp.arrayBuffer());
-        const workbook = XLSX.read(data, { type: 'array' });
-
-        // Clear default data and load all sheets
-        ss.sheets = [];
-
-        for (let i = 0; i < workbook.SheetNames.length; i++) {
-          const sheetName = workbook.SheetNames[i];
-          const wsData = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header: 1, defval: '' });
-
-          const sheet = ss.addSheet(sheetName);
-
-          // Determine actual data dimensions (skip trailing empty rows/cols)
-          let maxRow = 0, maxCol = 0;
-          for (let r = 0; r < wsData.length; r++) {
-            for (let c = 0; c < wsData[r].length; c++) {
-              if (wsData[r][c] !== '' && wsData[r][c] !== null && wsData[r][c] !== undefined) {
-                if (r > maxRow) maxRow = r;
-                if (c > maxCol) maxCol = c;
-              }
-            }
-          }
-
-          for (let r = 0; r <= maxRow; r++) {
-            if (!wsData[r]) continue;
-            for (let c = 0; c <= maxCol; c++) {
-              const val = wsData[r][c];
-              if (val !== '' && val !== null && val !== undefined) {
-                sheet.setCellValue(r, c, val);
-              }
-            }
-          }
-
-          // Style first data row as header
-          if (maxCol >= 0) {
-            const hRange = { startRow: 0, startCol: 0, endRow: 0, endCol: maxCol,
-              forEach(fn) { for (let c = this.startCol; c <= this.endCol; c++) fn(0, c); } };
-            sheet.setRangeStyle(hRange, { bold: true, bgColor: '#e8eaed' });
-          }
-
-          // Expand column count if needed
-          if (maxCol >= sheet.colCount) sheet.colCount = maxCol + 5;
-        }
-
-        ss.activeSheetIndex = 0;
-        document.getElementById('docTitle').value = 'importTemplate';
-        if (ss.sheetTabs) ss.sheetTabs.update();
-        ss.selectionManager.select(0, 0);
-        ss.renderer.scrollTo(0, 0);
-        ss.recalculate();
-        ss.render();
-        toast('Loaded importTemplate.xlsx (' + workbook.SheetNames.length + ' sheets)');
-      } catch (e) {
-        console.log('No template to auto-load:', e.message);
-      }
-    })();
+    // Demo starts with the sample data above. Use Import to load files.
 
     // ── Menu System ──
     let activeMenu = null;
