@@ -80,10 +80,14 @@ export default class KeyboardHandler {
         sel.tabNext(shift);
         break;
 
-      // ── Enter: move down. Shift+Enter: move up. (Google Sheets behavior) ──
+      // ── Enter: start editing. Shift+Enter: move up. ──
       case KEY.ENTER:
         e.preventDefault();
-        sel.move(shift ? -1 : 1, 0);
+        if (shift) {
+          sel.move(-1, 0);
+        } else if (editor) {
+          editor.beginEdit(true);
+        }
         break;
 
       // ── F2: start EDIT mode ──
