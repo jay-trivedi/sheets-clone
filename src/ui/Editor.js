@@ -1,13 +1,41 @@
 import { ROW_HEADER_WIDTH, COL_HEADER_HEIGHT, DEFAULT_FONT_FAMILY } from '../utils/constants.js';
 import { el } from '../utils/helpers.js';
 
+/*
+ * Cell editing state machine (matches Google Sheets behavior):
+ *
+ * READY  → default, no editing. Arrow keys navigate. Typing starts ENTER mode.
+ * ENTER  → new input (cell content cleared). For formulas, arrows → POINT mode.
+ *          For non-formulas, arrows commit + navigate.
+ * EDIT   → editing existing content with cursor. Arrows move text cursor.
+ *          F2 toggles to POINT mode (for formulas).
+ * POINT  → formula reference selection. Arrows insert cell refs.
+ *          F2 toggles back to EDIT mode.
+ */
+
+export const MODE = {
+  READY: 'ready',
+  ENTER: 'enter',
+  EDIT: 'edit',
+  POINT: 'point',
+};
+
 export default class Editor {
   constructor(spreadsheet) {
     this.spreadsheet = spreadsheet;
-    this.isActive = false;
+    this.mode = MODE.READY;
     this.editRow = -1;
     this.editCol = -1;
     this.textarea = null;
+    this._tabStartCol = -1; // column where Tab-based entry started
+  }
+
+  get isActive() {
+    return this.mode !== MODE.READY;
+  }
+
+  get isFormulaMode() {
+    return this.isActive && this.textarea.value.startsWith('=');
   }
 
   init(container) {
@@ -38,23 +66,69 @@ export default class Editor {
     container.appendChild(this.textarea);
   }
 
-  get isFormulaMode() {
-    return this.isActive && this.textarea.value.startsWith('=');
-  }
-
-  begin(initialValue = '', cursorMode = false) {
+  // ── Enter ENTER mode (typing replaces cell content) ──
+  beginEnter(initialChar = '') {
     const ss = this.spreadsheet;
     const sheet = ss.activeSheet;
     if (!sheet) return;
+
+    this._openEditor(sheet, '');
+    this.mode = MODE.ENTER;
+    this.textarea.value = initialChar;
+    this.textarea.selectionStart = initialChar.length;
+    this.textarea.selectionEnd = initialChar.length;
+
+    this._notifyFormulaHelper();
+  }
+
+  // ── Enter EDIT mode (edit existing content with cursor) ──
+  beginEdit(cursorAtEnd = true) {
+    const ss = this.spreadsheet;
+    const sheet = ss.activeSheet;
+    if (!sheet) return;
+
+    const cell = sheet.getCell(ss.selectionManager.activeRow, ss.selectionManager.activeCol);
+    const val = cell ? (cell.formula || cell.displayValue) : '';
+
+    this._openEditor(sheet, val);
+    this.mode = MODE.EDIT;
+
+    if (cursorAtEnd) {
+      this.textarea.selectionStart = this.textarea.value.length;
+      this.textarea.selectionEnd = this.textarea.value.length;
+    }
+
+    this._notifyFormulaHelper();
+  }
+
+  // ── Legacy API: begin(value, cursorMode) for backward compat ──
+  begin(initialValue = '', cursorMode = false) {
+    if (cursorMode) {
+      // F2 / Enter / double-click with existing value → EDIT mode
+      const ss = this.spreadsheet;
+      const sheet = ss.activeSheet;
+      if (!sheet) return;
+      this._openEditor(sheet, initialValue);
+      this.mode = MODE.EDIT;
+      this.textarea.selectionStart = this.textarea.value.length;
+      this.textarea.selectionEnd = this.textarea.value.length;
+      this._notifyFormulaHelper();
+    } else {
+      // Typing starts ENTER mode
+      this.beginEnter(initialValue);
+    }
+  }
+
+  _openEditor(sheet, value) {
+    const ss = this.spreadsheet;
     const sel = ss.selectionManager;
-    const renderer = ss.renderer;
 
     this.editRow = sel.activeRow;
     this.editCol = sel.activeCol;
-    this.isActive = true;
 
-    const rect = renderer._getCellRect(sheet, this.editRow, this.editCol);
+    const rect = ss.renderer._getCellRect(sheet, this.editRow, this.editCol);
     const cell = sheet.getCell(this.editRow, this.editCol);
+
     let w = rect.w, h = rect.h;
     if (cell && cell.mergeSpan) {
       for (let c = this.editCol + 1; c < this.editCol + cell.mergeSpan.cols; c++) w += sheet.getColWidth(c);
@@ -84,22 +158,36 @@ export default class Editor {
       this.textarea.style.background = '#fff';
     }
 
-    this.textarea.value = initialValue;
+    this.textarea.value = value;
     this.textarea.focus();
 
-    if (cursorMode) {
-      this.textarea.selectionStart = this.textarea.value.length;
-      this.textarea.selectionEnd = this.textarea.value.length;
-    } else {
-      this.textarea.select();
-    }
-
     if (ss.formulaBar) {
-      ss.formulaBar.setValue(initialValue);
+      ss.formulaBar.setValue(value);
       ss.formulaBar.setEditing(true);
     }
+  }
 
-    this._notifyFormulaHelper();
+  // ── Switch to POINT mode (from ENTER or EDIT, for formulas) ──
+  enterPointMode() {
+    if (!this.isFormulaMode) return;
+    this.mode = MODE.POINT;
+    const fh = this.spreadsheet.formulaHelper;
+    if (fh) {
+      fh.pointMode = true;
+      fh.pointAnchor = null;
+      fh.pointCurrent = null;
+    }
+  }
+
+  // ── Switch to EDIT mode (from POINT, toggle with F2) ──
+  enterEditMode() {
+    this.mode = MODE.EDIT;
+    const fh = this.spreadsheet.formulaHelper;
+    if (fh) {
+      fh.pointMode = false;
+      fh.pointAnchor = null;
+      fh.pointCurrent = null;
+    }
   }
 
   commit() {
@@ -137,7 +225,7 @@ export default class Editor {
   }
 
   _close() {
-    this.isActive = false;
+    this.mode = MODE.READY;
     this.textarea.style.display = 'none';
     this.textarea.value = '';
     this.editRow = -1;
@@ -146,12 +234,11 @@ export default class Editor {
     const ss = this.spreadsheet;
     if (ss.formulaBar) ss.formulaBar.setEditing(false);
     if (ss.formulaHelper) ss.formulaHelper.hide();
-
-    // Return focus to container so keyboard shortcuts work
     if (ss.container) ss.container.focus();
   }
 
   _onInput() {
+    // Auto-expand width
     const ctx = this.spreadsheet.renderer.ctx;
     if (ctx) {
       ctx.font = this.textarea.style.fontSize + ' ' + this.textarea.style.fontFamily;
@@ -190,24 +277,34 @@ export default class Editor {
   }
 
   _onKeyDown(e) {
-    // IMPORTANT: Editor owns ALL keyboard input when active.
-    // We stopPropagation so KeyboardHandler doesn't interfere.
     e.stopPropagation();
 
     const ss = this.spreadsheet;
     const sel = ss.selectionManager;
     const fh = ss.formulaHelper;
 
-    // ── Formula helper gets first crack (autocomplete, point-mode arrows) ──
+    // ── Autocomplete always gets first crack ──
     if (fh && this.isFormulaMode) {
-      const handled = fh.handlePointModeKey(e, this.textarea);
-      if (handled) return;
+      if (fh.handleAutocompleteKey(e, this.textarea)) return;
     }
 
-    // ── F4: cycle cell reference absolute/relative ($A$1 → A$1 → $A1 → A1) ──
+    // ── F4: cycle cell reference absolute/relative ──
     if (e.key === 'F4' && this.isFormulaMode) {
       e.preventDefault();
       this._cycleAbsoluteRef();
+      return;
+    }
+
+    // ── F2: toggle between EDIT and POINT modes ──
+    if (e.key === 'F2') {
+      e.preventDefault();
+      if (this.mode === MODE.EDIT && this.isFormulaMode) {
+        this.enterPointMode();
+      } else if (this.mode === MODE.POINT) {
+        this.enterEditMode();
+      } else if (this.mode === MODE.ENTER) {
+        this.mode = MODE.EDIT; // switch to edit (cursor moves text, not grid)
+      }
       return;
     }
 
@@ -218,19 +315,30 @@ export default class Editor {
       return;
     }
 
-    // ── Enter: commit and move down (Shift: up) ──
+    // ── Enter ──
     if (e.key === 'Enter' && !e.altKey) {
       e.preventDefault();
-      this.commit();
-      sel.move(e.shiftKey ? -1 : 1, 0);
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+Enter: commit, stay in same cell
+        this.commit();
+      } else {
+        this.commit();
+        sel.move(e.shiftKey ? -1 : 1, 0);
+        // Tab-start column: only on Enter (down), not Shift+Enter (up)
+        if (!e.shiftKey && this._tabStartCol >= 0) {
+          sel.select(sel.activeRow, this._tabStartCol);
+          this._tabStartCol = -1;
+        }
+      }
       ss.renderer.ensureCellVisible(sel.activeRow, sel.activeCol);
       ss.render();
       return;
     }
 
-    // ── Tab: commit and move right (Shift: left) ──
+    // ── Tab: commit and move right/left ──
     if (e.key === 'Tab') {
       e.preventDefault();
+      if (this._tabStartCol < 0) this._tabStartCol = this.editCol; // remember starting column
       this.commit();
       sel.tabNext(e.shiftKey);
       ss.renderer.ensureCellVisible(sel.activeRow, sel.activeCol);
@@ -238,8 +346,80 @@ export default class Editor {
       return;
     }
 
-    // All other keys: let textarea handle normally (typing, cursor movement,
-    // Ctrl+Z native undo, Ctrl+A select all in textarea, etc.)
+    // ── Alt+Enter: insert newline ──
+    if (e.key === 'Enter' && e.altKey) {
+      // Let textarea handle it naturally (inserts newline)
+      return;
+    }
+
+    // ── Arrow keys: behavior depends on mode ──
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (this.mode === MODE.POINT) {
+        // POINT mode: arrows insert/extend cell references
+        e.preventDefault();
+        if (fh) fh.handlePointArrow(e, this.textarea, ss);
+        return;
+      }
+
+      if (this.mode === MODE.ENTER && !this.isFormulaMode) {
+        // ENTER mode (non-formula): arrows commit + navigate
+        e.preventDefault();
+        this.commit();
+        sel.move(
+          e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0,
+          e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0,
+          e.shiftKey,
+        );
+        ss.renderer.ensureCellVisible(sel.activeRow, sel.activeCol);
+        ss.render();
+        return;
+      }
+
+      if (this.mode === MODE.ENTER && this.isFormulaMode) {
+        // ENTER mode (formula): check if we should enter POINT mode
+        const text = this.textarea.value;
+        const cursor = this.textarea.selectionStart;
+        const before = text.substring(0, cursor).trimEnd();
+        const lastChar = before.slice(-1);
+        const TRIGGERS = '=+-*/^(,;<>&!';
+        if (TRIGGERS.includes(lastChar)) {
+          e.preventDefault();
+          this.enterPointMode();
+          if (fh) fh.handlePointArrow(e, this.textarea, ss);
+          return;
+        }
+        // Otherwise, let textarea handle cursor movement
+        return;
+      }
+
+      // EDIT mode: let textarea handle arrow keys (cursor movement)
+      // No preventDefault — browser handles text cursor
+      return;
+    }
+
+    // ── Typing an operator in POINT mode: finalize ref, back to ENTER ──
+    if (this.mode === MODE.POINT && e.key.length === 1) {
+      const OPERATORS = '+-*/^(,;<>&!=)';
+      if (OPERATORS.includes(e.key)) {
+        this.mode = MODE.ENTER;
+        if (fh) {
+          fh.pointAnchor = null;
+          fh.pointCurrent = null;
+        }
+        // Let the character be typed normally
+        return;
+      }
+      // Non-operator character: exit point mode, switch to ENTER
+      this.mode = MODE.ENTER;
+      if (fh) {
+        fh.pointMode = false;
+        fh.pointAnchor = null;
+        fh.pointCurrent = null;
+      }
+      return;
+    }
+
+    // All other keys: let textarea handle normally
   }
 
   _cycleAbsoluteRef() {
@@ -247,23 +427,18 @@ export default class Editor {
     const text = ta.value;
     const cursor = ta.selectionStart;
 
-    // Find the cell reference (or range) surrounding the cursor
-    // Walk left to find start of ref token
     let start = cursor;
     while (start > 0 && /[A-Za-z0-9$:]/.test(text[start - 1])) start--;
-    // Walk right to find end
     let end = cursor;
     while (end < text.length && /[A-Za-z0-9$:]/.test(text[end])) end++;
 
     const token = text.substring(start, end);
     if (!token) return;
 
-    // Handle range (e.g. A1:B2) or single ref (e.g. A1)
     const cycled = token.split(':').map(ref => this._cycleOneRef(ref)).join(':');
     if (cycled === token) return;
 
     ta.value = text.substring(0, start) + cycled + text.substring(end);
-    // Keep cursor within the new token
     const newEnd = start + cycled.length;
     ta.selectionStart = start;
     ta.selectionEnd = newEnd;
@@ -271,28 +446,20 @@ export default class Editor {
   }
 
   _cycleOneRef(ref) {
-    // Parse: optional $ before col letters, optional $ before row digits
     const m = ref.match(/^(\$?)([A-Za-z]+)(\$?)(\d+)$/);
     if (!m) return ref;
-
-    const colAbs = m[1] === '$';
-    const col = m[2];
-    const rowAbs = m[3] === '$';
-    const row = m[4];
-
-    // Cycle: A1 → $A$1 → A$1 → $A1 → A1
-    if (!colAbs && !rowAbs) return '$' + col + '$' + row;   // A1 → $A$1
-    if (colAbs && rowAbs)   return col + '$' + row;          // $A$1 → A$1
-    if (!colAbs && rowAbs)  return '$' + col + row;          // A$1 → $A1
-    return col + row;                                         // $A1 → A1
+    const [, colAbs, col, rowAbs, row] = m;
+    if (!colAbs && !rowAbs) return '$' + col + '$' + row;
+    if (colAbs && rowAbs) return col + '$' + row;
+    if (!colAbs && rowAbs) return '$' + col + row;
+    return col + row;
   }
 
   updatePosition() {
     if (!this.isActive) return;
     const sheet = this.spreadsheet.activeSheet;
     if (!sheet) return;
-    const renderer = this.spreadsheet.renderer;
-    const rect = renderer._getCellRect(sheet, this.editRow, this.editCol);
+    const rect = this.spreadsheet.renderer._getCellRect(sheet, this.editRow, this.editCol);
     this.textarea.style.left = rect.x + 'px';
     this.textarea.style.top = rect.y + 'px';
   }

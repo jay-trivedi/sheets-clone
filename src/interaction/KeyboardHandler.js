@@ -21,14 +21,15 @@ export default class KeyboardHandler {
     const editor = ss.editor;
 
     // When editor is active, it handles its own keys via stopPropagation.
-    // This block is a safety net only — normally we never reach here while editing.
     if (editor && editor.isActive) return;
+
+    // ── READY mode: no editing active ──
 
     const ctrl = e.ctrlKey || e.metaKey;
     const shift = e.shiftKey;
 
-    // ── Navigation keys ──
     switch (e.key) {
+      // ── Navigation ──
       case KEY.ARROW_UP:
         e.preventDefault();
         if (ctrl) sel.moveToEdge(-1, 0, shift);
@@ -79,33 +80,33 @@ export default class KeyboardHandler {
         sel.tabNext(shift);
         break;
 
-      // ── Enter: edit current cell (show existing value) ──
+      // ── Enter: start EDIT mode (show existing cell value) ──
       case KEY.ENTER:
         e.preventDefault();
-        if (editor) {
-          const sheet = ss.activeSheet;
-          const cell = sheet ? sheet.getCell(sel.activeRow, sel.activeCol) : null;
-          const val = cell ? (cell.formula || cell.displayValue) : '';
-          editor.begin(val, true);
+        if (shift) {
+          sel.move(-1, 0);
+        } else if (editor) {
+          editor.beginEdit(true);
         }
         break;
 
-      // ── F2: edit current cell (cursor mode) ──
+      // ── F2: start EDIT mode ──
       case KEY.F2:
         e.preventDefault();
-        if (editor) {
-          const sheet = ss.activeSheet;
-          const cell = sheet ? sheet.getCell(sel.activeRow, sel.activeCol) : null;
-          const val = cell ? (cell.formula || cell.displayValue) : '';
-          editor.begin(val, true);
-        }
+        if (editor) editor.beginEdit(true);
         break;
 
-      // ── Delete / Backspace: clear selection ──
+      // ── Delete: clear cell contents ──
       case KEY.DELETE:
+        e.preventDefault();
+        ss.deleteSelection();
+        break;
+
+      // ── Backspace: clear cell and enter EDIT mode ──
       case KEY.BACKSPACE:
         e.preventDefault();
         ss.deleteSelection();
+        if (editor) editor.beginEdit(true);
         break;
 
       // ── Escape: clear copy indicator ──
@@ -142,14 +143,14 @@ export default class KeyboardHandler {
           return;
         }
 
-        // ── Typing a printable character starts editing ──
+        // ── Typing a printable character: ENTER mode (replaces cell content) ──
         if (e.key.length === 1 && !ctrl && !e.altKey && editor) {
-          editor.begin(e.key);
+          editor.beginEnter(e.key);
         }
         break;
     }
 
-    // Ensure active cell is visible after any navigation
+    // Ensure active cell is visible after navigation
     ss.renderer.ensureCellVisible(sel.activeRow, sel.activeCol);
     ss.render();
   }

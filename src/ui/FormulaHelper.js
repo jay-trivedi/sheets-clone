@@ -469,75 +469,66 @@ export default class FormulaHelper {
     }
   }
 
-  // Called by Editor when a key is pressed during formula editing
-  handlePointModeKey(e, textarea) {
-    // Handle autocomplete navigation FIRST (regardless of point mode)
-    if (this.dropdown && this.dropdown.style.display !== 'none' && this._matches.length > 0) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault();
-        this._selectedIndex = Math.min(this._selectedIndex + 1, this._matches.length - 1);
-        this._renderDropdown(this._textareaRect);
-        return true;
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault();
-        this._selectedIndex = Math.max(this._selectedIndex - 1, 0);
-        this._renderDropdown(this._textareaRect);
-        return true;
-      }
-      if (e.key === 'Tab' || (e.key === 'Enter' && this._matches.length > 0)) {
-        e.preventDefault();
-        this._acceptAutocomplete(this._selectedIndex);
-        return true;
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        this._hideAutocomplete();
-        return true;
-      }
+  // Handle autocomplete keyboard navigation (Tab/Enter/Arrow/Escape)
+  handleAutocompleteKey(e, textarea) {
+    if (!this.dropdown || this.dropdown.style.display === 'none' || this._matches.length === 0) {
+      return false;
     }
-
-    // Arrow keys in point mode insert cell references
-    if ((this.pointMode || this.pointAnchor) && (e.key === 'ArrowUp' || e.key === 'ArrowDown' ||
-        e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
-
-      const ss = this.spreadsheet;
-      const sheet = ss.activeSheet;
-      if (!sheet) return true;
-
-      const dr = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
-      const dc = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
-
-      if (!this.pointAnchor) {
-        // Start from active cell
-        this.pointAnchor = { row: ss.activeRow, col: ss.activeCol };
-        this.pointCurrent = {
-          row: Math.max(0, Math.min(ss.activeRow + dr, sheet.rowCount - 1)),
-          col: Math.max(0, Math.min(ss.activeCol + dc, sheet.colCount - 1)),
-        };
-      } else if (e.shiftKey) {
-        // Extend range
-        this.pointCurrent = {
-          row: Math.max(0, Math.min(this.pointCurrent.row + dr, sheet.rowCount - 1)),
-          col: Math.max(0, Math.min(this.pointCurrent.col + dc, sheet.colCount - 1)),
-        };
-      } else {
-        // Move single cell reference
-        this.pointAnchor = {
-          row: Math.max(0, Math.min(this.pointCurrent.row + dr, sheet.rowCount - 1)),
-          col: Math.max(0, Math.min(this.pointCurrent.col + dc, sheet.colCount - 1)),
-        };
-        this.pointCurrent = { ...this.pointAnchor };
-      }
-
-      this._insertRefAtCursor(textarea);
-      ss.renderer.ensureCellVisible(this.pointCurrent.row, this.pointCurrent.col);
-      ss.render();
+      this._selectedIndex = Math.min(this._selectedIndex + 1, this._matches.length - 1);
+      this._renderDropdown(this._textareaRect);
       return true;
     }
-
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._selectedIndex = Math.max(this._selectedIndex - 1, 0);
+      this._renderDropdown(this._textareaRect);
+      return true;
+    }
+    if (e.key === 'Tab' || (e.key === 'Enter' && this._matches.length > 0)) {
+      e.preventDefault();
+      this._acceptAutocomplete(this._selectedIndex);
+      return true;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this._hideAutocomplete();
+      return true;
+    }
     return false;
+  }
+
+  // Handle arrow keys in POINT mode (insert/extend cell references)
+  handlePointArrow(e, textarea, ss) {
+    const sheet = ss.activeSheet;
+    if (!sheet) return;
+
+    const dr = e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0;
+    const dc = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0;
+
+    if (!this.pointAnchor) {
+      this.pointAnchor = { row: ss.activeRow, col: ss.activeCol };
+      this.pointCurrent = {
+        row: Math.max(0, Math.min(ss.activeRow + dr, sheet.rowCount - 1)),
+        col: Math.max(0, Math.min(ss.activeCol + dc, sheet.colCount - 1)),
+      };
+    } else if (e.shiftKey) {
+      this.pointCurrent = {
+        row: Math.max(0, Math.min(this.pointCurrent.row + dr, sheet.rowCount - 1)),
+        col: Math.max(0, Math.min(this.pointCurrent.col + dc, sheet.colCount - 1)),
+      };
+    } else {
+      this.pointAnchor = {
+        row: Math.max(0, Math.min((this.pointCurrent || this.pointAnchor).row + dr, sheet.rowCount - 1)),
+        col: Math.max(0, Math.min((this.pointCurrent || this.pointAnchor).col + dc, sheet.colCount - 1)),
+      };
+      this.pointCurrent = { ...this.pointAnchor };
+    }
+
+    this._insertRefAtCursor(textarea);
+    ss.renderer.ensureCellVisible(this.pointCurrent.row, this.pointCurrent.col);
+    ss.render();
   }
 
   // Called when user clicks a cell while editing a formula
