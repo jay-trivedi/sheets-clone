@@ -78,9 +78,15 @@ export default class FormulaBar {
       }
     });
 
+    // Formula bar color overlay (for colored cell references)
+    const inputWrap = el('div', { className: 'sheets-formula-input-wrap' });
+    this.inputOverlay = el('div', { className: 'sheets-formula-input-overlay' });
+    inputWrap.appendChild(this.input);
+    inputWrap.appendChild(this.inputOverlay);
+
     this.element.appendChild(this.nameBox);
     this.element.appendChild(fxLabel);
-    this.element.appendChild(this.input);
+    this.element.appendChild(inputWrap);
     container.appendChild(this.element);
 
     // Listen for selection changes
@@ -109,6 +115,23 @@ export default class FormulaBar {
   setValue(val) {
     if (!this.input) return;
     this.input.value = val;
+    this.updateColorOverlay(val);
+  }
+
+  updateColorOverlay(text) {
+    if (!this.inputOverlay) return;
+    const fh = this.spreadsheet.formulaHelper;
+    if (fh && text && text.startsWith('=')) {
+      this.input.style.color = 'transparent';
+      this.input.style.caretColor = '#000';
+      this.inputOverlay.style.display = 'block';
+      this.inputOverlay.innerHTML = fh.getColoredFormulaHTML(text);
+    } else {
+      this.input.style.color = '';
+      this.input.style.caretColor = '';
+      this.inputOverlay.style.display = 'none';
+      this.inputOverlay.innerHTML = '';
+    }
   }
 
   setEditing(editing) {
@@ -118,6 +141,9 @@ export default class FormulaBar {
       this.input.classList.add('editing');
     } else {
       this.input.classList.remove('editing');
+      this.input.style.color = '';
+      this.input.style.caretColor = '';
+      if (this.inputOverlay) { this.inputOverlay.style.display = 'none'; this.inputOverlay.innerHTML = ''; }
       this.update();
     }
   }

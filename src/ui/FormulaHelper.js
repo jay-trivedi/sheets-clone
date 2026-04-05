@@ -631,6 +631,40 @@ export default class FormulaHelper {
     return this.formulaRefs;
   }
 
+  // Returns colored HTML for formula text (references get colored spans)
+  getColoredFormulaHTML(text) {
+    if (!text || !text.startsWith('=')) return this._escapeHTML(text);
+
+    const body = text.substring(1); // after =
+    const regex = /(\$?[A-Z]+\$?\d+)(?::(\$?[A-Z]+\$?\d+))?/gi;
+    const segments = [];
+    let lastIdx = 0;
+    let colorIdx = 0;
+
+    let match;
+    while ((match = regex.exec(body)) !== null) {
+      const color = REF_COLORS[colorIdx % REF_COLORS.length];
+      // Text before this match
+      if (match.index > lastIdx) {
+        segments.push(this._escapeHTML(body.substring(lastIdx, match.index)));
+      }
+      // The colored reference
+      segments.push(`<span style="color:${color};font-weight:600">${this._escapeHTML(match[0])}</span>`);
+      lastIdx = match.index + match[0].length;
+      colorIdx++;
+    }
+    // Remainder
+    if (lastIdx < body.length) {
+      segments.push(this._escapeHTML(body.substring(lastIdx)));
+    }
+
+    return this._escapeHTML('=') + segments.join('');
+  }
+
+  _escapeHTML(str) {
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   // ── Lifecycle ──
 
   hide() {

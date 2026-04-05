@@ -39,12 +39,33 @@ export default class Editor {
   }
 
   init(container) {
+    // Color overlay — renders colored reference text on top of transparent textarea text
+    this.colorOverlay = el('div', {
+      className: 'sheets-cell-editor-overlay',
+      style: {
+        position: 'absolute',
+        display: 'none',
+        zIndex: '11',
+        pointerEvents: 'none',
+        padding: '2px 4px',
+        border: '2px solid transparent',
+        fontFamily: DEFAULT_FONT_FAMILY,
+        fontSize: '10pt',
+        lineHeight: '1.2',
+        boxSizing: 'border-box',
+        whiteSpace: 'pre',
+        minWidth: '60px',
+        overflow: 'hidden',
+      },
+    });
+    container.appendChild(this.colorOverlay);
+
     this.textarea = el('textarea', {
       className: 'sheets-cell-editor',
       style: {
         position: 'absolute',
         display: 'none',
-        zIndex: '10',
+        zIndex: '12',
         border: '2px solid #1a73e8',
         outline: 'none',
         resize: 'none',
@@ -161,6 +182,9 @@ export default class Editor {
     this.textarea.value = value;
     this.textarea.focus();
 
+    // Show color overlay (synced position/size)
+    this._syncOverlay();
+
     if (ss.formulaBar) {
       ss.formulaBar.setValue(value);
       ss.formulaBar.setEditing(true);
@@ -227,6 +251,7 @@ export default class Editor {
   _close() {
     this.mode = MODE.READY;
     this.textarea.style.display = 'none';
+    this.colorOverlay.style.display = 'none';
     this.textarea.value = '';
     this.editRow = -1;
     this.editCol = -1;
@@ -252,9 +277,43 @@ export default class Editor {
 
     if (this.spreadsheet.formulaBar) {
       this.spreadsheet.formulaBar.setValue(this.textarea.value);
+      this.spreadsheet.formulaBar.updateColorOverlay(this.textarea.value);
     }
 
+    this._syncOverlay();
     this._notifyFormulaHelper();
+  }
+
+  _syncOverlay() {
+    const ov = this.colorOverlay;
+    const ta = this.textarea;
+    // Match position and size
+    ov.style.left = ta.style.left;
+    ov.style.top = ta.style.top;
+    ov.style.width = ta.style.width;
+    ov.style.height = ta.style.height;
+    ov.style.minHeight = ta.style.minHeight;
+    ov.style.fontFamily = ta.style.fontFamily;
+    ov.style.fontSize = ta.style.fontSize;
+    ov.style.fontWeight = ta.style.fontWeight;
+    ov.style.fontStyle = ta.style.fontStyle;
+
+    const fh = this.spreadsheet.formulaHelper;
+    if (fh && this.isFormulaMode) {
+      // Make textarea text transparent, show colored overlay
+      ta.style.color = 'transparent';
+      ta.style.caretColor = '#000';
+      ov.style.display = 'block';
+      ov.innerHTML = fh.getColoredFormulaHTML(ta.value);
+    } else {
+      // Normal mode: no overlay
+      const sheet = this.spreadsheet.activeSheet;
+      const cell = sheet ? sheet.getCell(this.editRow, this.editCol) : null;
+      const style = cell ? cell.getStyle() : null;
+      ta.style.color = (style && style.textColor) || '#000';
+      ta.style.caretColor = '';
+      ov.style.display = 'none';
+    }
   }
 
   _notifyFormulaHelper() {
