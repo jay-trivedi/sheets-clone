@@ -183,10 +183,23 @@ export default class MouseHandler {
 
     switch (this._mode) {
       case 'select': {
-        const cell = renderer.getCellAtPoint(
-          Math.max(ROW_HEADER_WIDTH, Math.min(x, this.canvas.width / renderer.dpr - SCROLLBAR_SIZE)),
-          Math.max(COL_HEADER_HEIGHT, Math.min(y, this.canvas.height / renderer.dpr - SCROLLBAR_SIZE))
-        );
+        // Auto-scroll when dragging near/beyond edges
+        const margin = 20;
+        const viewRight = renderer.width - SCROLLBAR_SIZE;
+        const viewBottom = renderer.height - SCROLLBAR_SIZE;
+        let scrollDx = 0, scrollDy = 0;
+
+        if (x > viewRight - margin) scrollDx = Math.min(30, (x - viewRight + margin) * 0.5);
+        else if (x < ROW_HEADER_WIDTH + margin) scrollDx = -Math.min(30, (ROW_HEADER_WIDTH + margin - x) * 0.5);
+        if (y > viewBottom - margin) scrollDy = Math.min(30, (y - viewBottom + margin) * 0.5);
+        else if (y < COL_HEADER_HEIGHT + margin) scrollDy = -Math.min(30, (COL_HEADER_HEIGHT + margin - y) * 0.5);
+
+        if (scrollDx || scrollDy) renderer.scrollBy(scrollDx, scrollDy);
+
+        // Get cell at mouse position (allow edge clamping for beyond-viewport drags)
+        const clampedX = Math.max(ROW_HEADER_WIDTH + 1, x);
+        const clampedY = Math.max(COL_HEADER_HEIGHT + 1, y);
+        const cell = renderer.getCellAtPoint(clampedX, clampedY);
         if (cell) {
           ss.selectionManager.extendTo(cell.row, cell.col);
           ss.render();

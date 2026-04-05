@@ -67,12 +67,12 @@ export default class KeyboardHandler {
 
       case KEY.PAGE_UP:
         e.preventDefault();
-        sel.pageMove(-1);
+        sel.pageMove(-1, shift);
         break;
 
       case KEY.PAGE_DOWN:
         e.preventDefault();
-        sel.pageMove(1);
+        sel.pageMove(1, shift);
         break;
 
       case KEY.TAB:
@@ -151,8 +151,8 @@ export default class KeyboardHandler {
         break;
     }
 
-    // Ensure active cell is visible after navigation
-    ss.renderer.ensureCellVisible(sel.activeRow, sel.activeCol);
+    // Ensure cursor (extending end or active cell) is visible after navigation
+    ss.renderer.ensureCellVisible(sel._cursorRow, sel._cursorCol);
     ss.render();
   }
 }
