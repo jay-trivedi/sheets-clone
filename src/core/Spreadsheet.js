@@ -645,7 +645,8 @@ export default class Spreadsheet {
         if (cell.formula) {
           const row = key >> 16;
           const col = key & 0xffff;
-          cell.computedValue = this.formulaEngine.evaluate(cell.formula, sheet.id, row, col);
+          const result = this.formulaEngine.evaluate(cell.formula, sheet.id, row, col);
+          cell.computedValue = result === null || result === undefined ? '' : result;
         }
       }
     }

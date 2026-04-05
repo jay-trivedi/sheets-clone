@@ -79,6 +79,11 @@ export default class Cell {
 
   get displayValue() {
     if (this.type === CELL_TYPE.EMPTY) return '';
+    // Formula cells always show computed value, never the raw formula text
+    if (this.formula) {
+      if (this.computedValue === null || this.computedValue === undefined) return '';
+      return String(this.computedValue);
+    }
     const val = this.computedValue !== null ? this.computedValue : this.rawValue;
     if (val === null || val === undefined) return '';
     return String(val);
