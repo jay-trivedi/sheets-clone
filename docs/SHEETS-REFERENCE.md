@@ -40,6 +40,17 @@
 After these characters, arrow keys/clicks insert refs:
 `= + - * / ^ ( , ; < > <= >= <> ! &`
 
+## Enter / Shift+Enter behavior
+| Context | Enter | Shift+Enter |
+|---------|-------|-------------|
+| READY mode | Move down | Move up |
+| ENTER/EDIT mode | Commit + move down | Commit + move up |
+| POINT mode | Commit + move down | Commit + move up |
+| Formula bar | Same as cell editing | Same as cell editing |
+| After Tab-navigation | Commit + move to tab-start column, next row | Commit + move up (keep column) |
+
+Note: Alt+Enter inserts a newline (NOT Shift+Enter). Ctrl+Enter commits but stays in same cell.
+
 ## Key Behaviors
 - Backspace in READY: clear cell + enter EDIT mode
 - Ctrl+Enter: commit, stay in same cell
