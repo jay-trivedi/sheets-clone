@@ -574,6 +574,7 @@ export default class Spreadsheet {
   insertRowAbove() {
     const row = this.selectionManager.activeRow;
     this.activeSheet.insertRows(row);
+    this.commandManager.execute({ type: 'insertRows', at: row, count: 1 });
     this.emit('change', { changeType: 'INSERT_ROW', source: this });
     this.recalculate();
     this.render();
@@ -581,7 +582,9 @@ export default class Spreadsheet {
 
   insertRowBelow() {
     const sel = this.selection;
-    this.activeSheet.insertRows(sel ? sel.endRow + 1 : this.activeRow + 1);
+    const at = sel ? sel.endRow + 1 : this.activeRow + 1;
+    this.activeSheet.insertRows(at);
+    this.commandManager.execute({ type: 'insertRows', at, count: 1 });
     this.emit('change', { changeType: 'INSERT_ROW', source: this });
     this.recalculate();
     this.render();
@@ -590,6 +593,7 @@ export default class Spreadsheet {
   insertColLeft() {
     const col = this.selectionManager.activeCol;
     this.activeSheet.insertCols(col);
+    this.commandManager.execute({ type: 'insertCols', at: col, count: 1 });
     this.emit('change', { changeType: 'INSERT_COLUMN', source: this });
     this.recalculate();
     this.render();
@@ -597,7 +601,9 @@ export default class Spreadsheet {
 
   insertColRight() {
     const sel = this.selection;
-    this.activeSheet.insertCols(sel ? sel.endCol + 1 : this.activeCol + 1);
+    const at = sel ? sel.endCol + 1 : this.activeCol + 1;
+    this.activeSheet.insertCols(at);
+    this.commandManager.execute({ type: 'insertCols', at, count: 1 });
     this.emit('change', { changeType: 'INSERT_COLUMN', source: this });
     this.recalculate();
     this.render();
@@ -605,10 +611,22 @@ export default class Spreadsheet {
 
   deleteSelectedRows() {
     const sel = this.selection;
-    if (!sel) return;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet) return;
     const count = sel.endRow - sel.startRow + 1;
-    this.activeSheet.deleteRows(sel.startRow, count);
-    this.selectionManager.select(Math.min(sel.startRow, this.activeSheet.rowCount - 1), this.activeCol);
+
+    // Save cell data for undo
+    const savedData = [];
+    for (let r = sel.startRow; r <= sel.endRow; r++) {
+      for (let c = 0; c < sheet.colCount; c++) {
+        const cell = sheet.getCell(r, c);
+        if (cell) savedData.push({ row: r, col: c, cellJSON: cell.toJSON() });
+      }
+    }
+
+    sheet.deleteRows(sel.startRow, count);
+    this.commandManager.execute({ type: 'deleteRows', at: sel.startRow, count, savedData });
+    this.selectionManager.select(Math.min(sel.startRow, sheet.rowCount - 1), this.activeCol);
     this.emit('change', { changeType: 'REMOVE_ROW', source: this });
     this.recalculate();
     this.render();
@@ -616,10 +634,22 @@ export default class Spreadsheet {
 
   deleteSelectedCols() {
     const sel = this.selection;
-    if (!sel) return;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet) return;
     const count = sel.endCol - sel.startCol + 1;
-    this.activeSheet.deleteCols(sel.startCol, count);
-    this.selectionManager.select(this.activeRow, Math.min(sel.startCol, this.activeSheet.colCount - 1));
+
+    // Save cell data for undo
+    const savedData = [];
+    for (let r = 0; r < sheet.rowCount; r++) {
+      for (let c = sel.startCol; c <= sel.endCol; c++) {
+        const cell = sheet.getCell(r, c);
+        if (cell) savedData.push({ row: r, col: c, cellJSON: cell.toJSON() });
+      }
+    }
+
+    sheet.deleteCols(sel.startCol, count);
+    this.commandManager.execute({ type: 'deleteCols', at: sel.startCol, count, savedData });
+    this.selectionManager.select(this.activeRow, Math.min(sel.startCol, sheet.colCount - 1));
     this.emit('change', { changeType: 'REMOVE_COLUMN', source: this });
     this.recalculate();
     this.render();
@@ -631,21 +661,30 @@ export default class Spreadsheet {
     const sel = this.selection;
     if (!sel || sel.isSingleCell) return;
     this.activeSheet.addMerge(sel);
+    this.commandManager.execute({
+      type: 'merge', rangeStr: sel.toString(),
+      startRow: sel.startRow, startCol: sel.startCol, endRow: sel.endRow, endCol: sel.endCol,
+    });
     this.render();
   }
 
   unmergeSelection() {
     const sel = this.selection;
     if (!sel) return;
-    // Find all merges that intersect with selection
     const toRemove = [];
     for (const m of this.activeSheet.merges) {
       const range = CellRange.fromString(m);
       if (range && range.intersects(sel)) toRemove.push(range);
     }
+    this.commandManager.beginBatch();
     for (const range of toRemove) {
       this.activeSheet.removeMerge(range);
+      this.commandManager.pushToCurrentBatch({
+        type: 'unmerge', rangeStr: range.toString(),
+        startRow: range.startRow, startCol: range.startCol, endRow: range.endRow, endCol: range.endCol,
+      });
     }
+    this.commandManager.endBatch();
     this.render();
   }
 
