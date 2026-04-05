@@ -11,20 +11,20 @@ export const DEFAULT_COLS = 26;
 export const SCROLLBAR_SIZE = 14;
 
 export const CELL_PADDING = 4;
-export const CELL_BORDER_COLOR = '#e2e3e3';
-export const HEADER_BG_COLOR = '#f8f9fa';
-export const HEADER_BORDER_COLOR = '#c7c7c7';
-export const HEADER_TEXT_COLOR = '#666';
-export const SELECTION_BORDER_COLOR = '#1a73e8';
-export const SELECTION_BG_COLOR = 'rgba(26, 115, 232, 0.08)';
+export const CELL_BORDER_COLOR = '#dadada';
+export const HEADER_BG_COLOR = '#efeded';
+export const HEADER_BORDER_COLOR = '#c4c7c5';
+export const HEADER_TEXT_COLOR = '#1f1f1f';
+export const SELECTION_BORDER_COLOR = '#3271ea';
+export const SELECTION_BG_COLOR = 'rgba(50, 113, 234, 0.08)';
 export const SELECTION_HEADER_BG = '#d3e3fd';
 export const FILL_HANDLE_SIZE = 7;
-export const FILL_HANDLE_COLOR = '#1a73e8';
+export const FILL_HANDLE_COLOR = '#3271ea';
 export const GRID_LINE_WIDTH = 1;
 
 export const DEFAULT_FONT_FAMILY = 'Arial';
 export const DEFAULT_FONT_SIZE = 10;
-export const DEFAULT_TEXT_COLOR = '#000000';
+export const DEFAULT_TEXT_COLOR = '#1f1f1f';
 export const DEFAULT_BG_COLOR = '#ffffff';
 
 export const TOOLBAR_HEIGHT = 40;

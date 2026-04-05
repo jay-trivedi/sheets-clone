@@ -66,7 +66,7 @@ export default class Editor {
         position: 'absolute',
         display: 'none',
         zIndex: '12',
-        border: '2px solid #1a73e8',
+        border: '2px solid #3271ea',
         outline: 'none',
         resize: 'none',
         overflow: 'hidden',
