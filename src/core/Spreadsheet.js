@@ -503,6 +503,25 @@ export default class Spreadsheet {
     this.render();
   }
 
+  pasteTranspose() {
+    const cb = this.clipboard;
+    if (!cb.copiedData) return;
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    const sel = this.selectionManager;
+
+    for (const cellData of cb.copiedData.cells) {
+      // Swap row/col
+      const r = sel.activeRow + cellData.col;
+      const c = sel.activeCol + cellData.row;
+      if (r >= sheet.rowCount || c >= sheet.colCount) continue;
+      sheet.setCellValue(r, c, cellData.value);
+      if (cellData.style) sheet.setCellStyle(r, c, cellData.style);
+    }
+    this.recalculate();
+    this.render();
+  }
+
   pasteFormatOnly() {
     const cb = this.clipboard;
     if (!cb.copiedData) return;
@@ -1117,6 +1136,50 @@ export default class Spreadsheet {
 
   showFindReplace(replace = false) {
     this.findReplace.show(replace);
+  }
+
+  // ── View toggles ──
+
+  toggleGridlines() {
+    const sheet = this.activeSheet;
+    if (sheet) { sheet.showGridlines = !sheet.showGridlines; this.render(); }
+  }
+
+  toggleShowFormulas() {
+    const sheet = this.activeSheet;
+    if (sheet) { sheet.showFormulas = !sheet.showFormulas; this.render(); }
+  }
+
+  // ── Hide/Unhide rows/columns ──
+
+  hideSelectedRows() {
+    const sel = this.selection;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet) return;
+    for (let r = sel.startRow; r <= sel.endRow; r++) sheet.hiddenRows.add(r);
+    this.render();
+  }
+
+  unhideRows(startRow, endRow) {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    for (let r = startRow; r <= endRow; r++) sheet.hiddenRows.delete(r);
+    this.render();
+  }
+
+  hideSelectedCols() {
+    const sel = this.selection;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet) return;
+    for (let c = sel.startCol; c <= sel.endCol; c++) sheet.hiddenCols.add(c);
+    this.render();
+  }
+
+  unhideCols(startCol, endCol) {
+    const sheet = this.activeSheet;
+    if (!sheet) return;
+    for (let c = startCol; c <= endCol; c++) sheet.hiddenCols.delete(c);
+    this.render();
   }
 
   // ── Fill Down / Right ──

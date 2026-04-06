@@ -24,6 +24,8 @@ export default class Sheet {
     this.filterRange = null;
     this.filterCriteria = new Map();
     this.filteredRows = new Set();
+    this.showGridlines = true;
+    this.showFormulas = false;
     this.defaultColWidth = opts.defaultColWidth || DEFAULT_COL_WIDTH;
     this.defaultRowHeight = opts.defaultRowHeight || DEFAULT_ROW_HEIGHT;
   }

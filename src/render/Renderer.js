@@ -129,7 +129,7 @@ export default class Renderer {
       this.height - COL_HEADER_HEIGHT - SCROLLBAR_SIZE);
     ctx.clip();
     this._drawCells(ctx, sheet, vp);
-    this._drawGridLines(ctx, sheet, vp);
+    if (sheet.showGridlines !== false) this._drawGridLines(ctx, sheet, vp);
     this._drawFilterArrows(ctx, sheet, vp);
     this._drawFormulaRefs(ctx, sheet, vp);
     this._drawSelection(ctx, sheet, vp);
@@ -292,7 +292,7 @@ export default class Renderer {
           const textColor = (cfStyle && cfStyle.textColor) || effectiveStyle.textColor || DEFAULT_TEXT_COLOR;
           const cellType = cell.effectiveType;
 
-          let displayText = cell.displayValue;
+          let displayText = (sheet.showFormulas && cell.formula) ? cell.formula : cell.displayValue;
           if (effectiveStyle.numberFormat && effectiveStyle.numberFormat !== 'General' && typeof cell.computedValue === 'number') {
             displayText = numberFormat.format(cell.computedValue, effectiveStyle.numberFormat);
           }

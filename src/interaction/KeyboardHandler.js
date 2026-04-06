@@ -148,6 +148,7 @@ export default class KeyboardHandler {
               else { if (ss.editor) ss.editor.beginEnter(new Date().toLocaleDateString()); }
               break;
             case '\\': e.preventDefault(); ss.clearFormatting(); break;
+            case '`': e.preventDefault(); ss.toggleShowFormulas(); break;
           }
           return;
         }

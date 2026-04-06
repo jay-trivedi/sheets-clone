@@ -681,60 +681,134 @@
   margin: 4px 0;
 }
 
+.sheets-has-submenu {
+  position: relative;
+}
+
+.sheets-context-submenu {
+  display: none;
+  position: absolute;
+  left: 100%;
+  top: -6px;
+  background: #fff;
+  border: 1px solid #dadada;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+  padding: 6px 0;
+  min-width: 180px;
+  z-index: 1001;
+}
+
+.sheets-has-submenu:hover > .sheets-context-submenu {
+  display: block;
+}
+
 /* ── Find / Replace ── */
 .sheets-find-replace {
   position: absolute;
   top: 8px;
   right: 24px;
   background: #fff;
-  border: 1px solid #dadce0;
+  border: 1px solid #dadada;
   border-radius: 8px;
   box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-  padding: 8px;
+  padding: 10px 12px;
   z-index: 100;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
 }
 
-.sheets-find-row {
+.sheets-fr-row {
   display: flex;
   align-items: center;
   gap: 4px;
 }
 
-.sheets-find-input {
-  border: 1px solid #dadce0;
+.sheets-fr-input,
+.sheets-fr-replace-input {
+  border: 1px solid #c4c7c5;
   border-radius: 4px;
-  padding: 4px 8px;
+  padding: 6px 8px;
   font-size: 13px;
   outline: none;
-  width: 200px;
+  width: 220px;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
 }
 
-.sheets-find-input:focus {
-  border-color: #1a73e8;
+.sheets-fr-input:focus,
+.sheets-fr-replace-input:focus {
+  border-color: #3271ea;
 }
 
-.sheets-find-btn {
+.sheets-fr-btn {
   border: none;
   background: transparent;
   cursor: pointer;
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 12px;
-  color: #555;
+  color: #444746;
 }
 
-.sheets-find-btn:hover {
-  background: #e0e0e0;
+.sheets-fr-btn:hover {
+  background: rgba(0,0,0,.06);
 }
 
-.sheets-find-count {
+.sheets-fr-close {
+  font-size: 14px;
+}
+
+.sheets-fr-replace-btn,
+.sheets-fr-replace-all-btn {
+  font-size: 12px;
+  padding: 5px 10px;
+  border: 1px solid #c4c7c5;
+  background: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #1f1f1f;
+}
+
+.sheets-fr-replace-btn:hover,
+.sheets-fr-replace-all-btn:hover {
+  background: rgba(0,0,0,.06);
+}
+
+.sheets-fr-count {
   font-size: 11px;
-  color: #888;
+  color: #444746;
   min-width: 60px;
   text-align: center;
+}
+
+.sheets-fr-options {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: #444746;
+}
+
+.sheets-fr-options label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.sheets-fr-options input[type="checkbox"] {
+  margin: 0;
+}
+
+.sheets-fr-options select {
+  border: 1px solid #c4c7c5;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 11px;
+  outline: none;
+  background: #fff;
 }
 
 /* ── Pivot Table ── */
