@@ -910,6 +910,38 @@ export const FUNCTIONS = {
   // ── Array-ish ──
   ARRAYFORMULA(args) { return args[0]; },
 
+  // ── Sparklines ──
+  SPARKLINE(args, ctx) {
+    const data = args[0];
+    let values;
+    if (data && data._isRange) {
+      values = ctx.resolveRange(data).flat().filter(v => typeof v === 'number');
+    } else if (Array.isArray(data)) {
+      values = data.flat().filter(v => typeof v === 'number');
+    } else {
+      return '';
+    }
+
+    // Options from second arg
+    let type = 'line', color = '#4285f4';
+    if (args.length > 1) {
+      const opts = args[1];
+      if (opts && opts._isRange) {
+        const optData = ctx.resolveRange(opts);
+        for (const row of optData) {
+          if (row[0] === 'charttype' && row[1]) type = String(row[1]);
+          if (row[0] === 'color' && row[1]) color = String(row[1]);
+        }
+      } else if (typeof opts === 'object' && opts) {
+        type = opts.charttype || opts.type || type;
+        color = opts.color || color;
+      }
+    }
+
+    // Return a sparkline marker object — the renderer will detect this
+    return { _sparkline: true, values, type, color };
+  },
+
   // ── Financial ──
   PMT(args, ctx) {
     const rate = ctx.toNumber(args[0]);

@@ -20,6 +20,7 @@ import FindReplace from '../ui/FindReplace.js';
 import StatusBar from '../ui/StatusBar.js';
 import CommandManager from '../features/CommandManager.js';
 import ChartManager from '../features/ChartManager.js';
+import ProtectionManager from '../features/Protection.js';
 import DataValidationManager from '../features/DataValidation.js';
 import NamedRangesManager from '../features/NamedRanges.js';
 import ConditionalFormatUI from '../features/ConditionalFormatUI.js';
@@ -69,6 +70,7 @@ export default class Spreadsheet {
     this.findReplace = new FindReplace(this);
     this.statusBar = new StatusBar(this);
     this.chartManager = new ChartManager(this);
+    this.protection = new ProtectionManager(this);
     this.dataValidation = new DataValidationManager(this);
     this.namedRanges = new NamedRangesManager(this);
     this.conditionalFormatUI = new ConditionalFormatUI(this);
@@ -827,16 +829,62 @@ export default class Spreadsheet {
   // ── Conditional formatting ──
 
   getConditionalStyle(sheet, row, col) {
+    const result = this.getConditionalResult(sheet, row, col);
+    return result ? result.style : null;
+  }
+
+  getConditionalResult(sheet, row, col) {
     for (const cf of sheet.conditionalFormats) {
       const range = CellRange.fromString(cf.range);
       if (!range || !range.contains(row, col)) continue;
 
       const cellValue = sheet.getCellValue(row, col);
+
+      // Data bar
+      if (cf.type === 'dataBar') {
+        if (typeof cellValue !== 'number') continue;
+        const { min, max, color } = this._getDataBarRange(sheet, range, cf);
+        const percent = max === min ? 0 : (cellValue - min) / (max - min);
+        return { style: cf.style || null, dataBar: { percent: Math.max(0, Math.min(1, percent)), color: color || '#4285f4' } };
+      }
+
+      // Icon set
+      if (cf.type === 'iconSet') {
+        if (typeof cellValue !== 'number') continue;
+        const { min, max } = this._getDataBarRange(sheet, range, cf);
+        const pct = max === min ? 0 : (cellValue - min) / (max - min);
+        const icons = cf.icons || ['🔴', '🟡', '🟢'];
+        const thresholds = cf.thresholds || [0.33, 0.67];
+        let icon = icons[0];
+        for (let i = 0; i < thresholds.length; i++) {
+          if (pct >= thresholds[i]) icon = icons[i + 1];
+        }
+        return { style: cf.style || null, icon };
+      }
+
+      // Standard condition
       if (this._matchCondition(cellValue, cf)) {
-        return cf.style;
+        return { style: cf.style || null };
       }
     }
     return null;
+  }
+
+  _getDataBarRange(sheet, range, cf) {
+    let min = cf.min !== undefined ? cf.min : Infinity;
+    let max = cf.max !== undefined ? cf.max : -Infinity;
+    if (min === Infinity || max === -Infinity) {
+      for (let r = range.startRow; r <= range.endRow; r++) {
+        for (let c = range.startCol; c <= range.endCol; c++) {
+          const v = sheet.getCellValue(r, c);
+          if (typeof v === 'number') {
+            if (v < min) min = v;
+            if (v > max) max = v;
+          }
+        }
+      }
+    }
+    return { min, max, color: cf.color || '#4285f4' };
   }
 
   _matchCondition(value, cf) {
@@ -846,7 +894,8 @@ export default class Spreadsheet {
       case 'equalTo': return value === cf.value;
       case 'between': return typeof value === 'number' && value >= cf.min && value <= cf.max;
       case 'text_contains': return typeof value === 'string' && value.toLowerCase().includes(cf.value.toLowerCase());
-      case 'duplicate': return false; // TODO: implement
+      case 'isEmpty': return value === null || value === undefined || value === '';
+      case 'isNotEmpty': return value !== null && value !== undefined && value !== '';
       default: return false;
     }
   }
@@ -1118,6 +1167,28 @@ export default class Spreadsheet {
     this.conditionalFormatUI.showDialog();
   }
 
+  // ── Protection ──
+
+  protectSheet(options) {
+    const sheet = this.activeSheet;
+    if (sheet) this.protection.protectSheet(sheet, options);
+  }
+
+  unprotectSheet() {
+    const sheet = this.activeSheet;
+    if (sheet) this.protection.unprotectSheet(sheet);
+  }
+
+  protectRange(rangeStr, description) {
+    const sheet = this.activeSheet;
+    if (sheet) this.protection.protectRange(sheet, rangeStr, description);
+  }
+
+  canEditCell(row, col) {
+    const sheet = this.activeSheet;
+    return sheet ? this.protection.canEdit(sheet, row, col) : true;
+  }
+
   // ── Formula recalculation ──
 
   recalculate() {
@@ -1128,7 +1199,14 @@ export default class Spreadsheet {
           const row = key >> 16;
           const col = key & 0xffff;
           const result = this.formulaEngine.evaluate(cell.formula, sheet.id, row, col);
-          cell.computedValue = result === null || result === undefined ? '' : result;
+          // Sparkline results are objects with _sparkline flag
+          if (result && typeof result === 'object' && result._sparkline) {
+            cell._sparkline = result;
+            cell.computedValue = '';
+          } else {
+            cell._sparkline = null;
+            cell.computedValue = result === null || result === undefined ? '' : result;
+          }
         }
       }
     }

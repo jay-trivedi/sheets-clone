@@ -251,12 +251,39 @@ export default class Renderer {
         }
 
         // Conditional formatting
-        const cfStyle = this.spreadsheet.getConditionalStyle(sheet, r, c);
+        const cfResult = this.spreadsheet.getConditionalResult(sheet, r, c);
+        const cfStyle = cfResult ? cfResult.style : null;
         if (cfStyle) {
           if (cfStyle.bgColor) {
             ctx.fillStyle = cfStyle.bgColor;
             ctx.fillRect(rect.x, rect.y, cellW, cellH);
           }
+        }
+
+        // Data bar (from conditional formatting)
+        if (cfResult && cfResult.dataBar) {
+          const db = cfResult.dataBar;
+          const barW = Math.max(1, (cellW - 4) * db.percent);
+          ctx.fillStyle = db.color + '55';
+          ctx.fillRect(rect.x + 2, rect.y + 2, barW, cellH - 4);
+          ctx.strokeStyle = db.color;
+          ctx.lineWidth = 1;
+          ctx.strokeRect(rect.x + 2, rect.y + 2, barW, cellH - 4);
+        }
+
+        // Icon set (from conditional formatting)
+        if (cfResult && cfResult.icon) {
+          const iconSize = Math.min(14, cellH - 4);
+          ctx.font = iconSize + 'px Arial';
+          ctx.fillStyle = '#444';
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(cfResult.icon, rect.x + 3, rect.y + cellH / 2);
+        }
+
+        // Sparkline
+        if (cell && cell._sparkline) {
+          this._drawSparkline(ctx, rect.x + 2, rect.y + 2, cellW - 4, cellH - 4, cell._sparkline);
         }
 
         // Cell text
@@ -501,6 +528,52 @@ export default class Renderer {
         crEnd.x + crEnd.w - crStart.x,
         crEnd.y + crEnd.h - crStart.y);
       ctx.setLineDash([]);
+    }
+  }
+
+  _drawSparkline(ctx, x, y, w, h, data) {
+    if (!data || !data.values || data.values.length < 2) return;
+    const vals = data.values.filter(v => typeof v === 'number');
+    if (vals.length < 2) return;
+
+    const min = Math.min(...vals);
+    const max = Math.max(...vals);
+    const range = max - min || 1;
+    const type = data.type || 'line';
+
+    if (type === 'line') {
+      ctx.beginPath();
+      ctx.strokeStyle = data.color || '#4285f4';
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < vals.length; i++) {
+        const px = x + (i / (vals.length - 1)) * w;
+        const py = y + h - ((vals[i] - min) / range) * h;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    } else if (type === 'bar' || type === 'column') {
+      const barW = Math.max(1, (w / vals.length) - 1);
+      for (let i = 0; i < vals.length; i++) {
+        const barH = Math.max(1, ((vals[i] - min) / range) * h);
+        const px = x + (i / vals.length) * w;
+        const py = y + h - barH;
+        ctx.fillStyle = vals[i] >= 0 ? (data.color || '#4285f4') : '#ea4335';
+        ctx.fillRect(px, py, barW, barH);
+      }
+    } else if (type === 'winloss') {
+      const barW = Math.max(1, (w / vals.length) - 1);
+      const midY = y + h / 2;
+      for (let i = 0; i < vals.length; i++) {
+        const px = x + (i / vals.length) * w;
+        if (vals[i] > 0) {
+          ctx.fillStyle = data.color || '#34a853';
+          ctx.fillRect(px, midY - h / 2 + 1, barW, h / 2 - 2);
+        } else if (vals[i] < 0) {
+          ctx.fillStyle = '#ea4335';
+          ctx.fillRect(px, midY + 1, barW, h / 2 - 2);
+        }
+      }
     }
   }
 

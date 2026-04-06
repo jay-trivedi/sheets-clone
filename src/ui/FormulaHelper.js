@@ -116,6 +116,7 @@ const FUNC_CATALOG = [
   { name: 'TRANSPOSE', sig: 'TRANSPOSE(range)', desc: 'Transposes rows and columns of a range' },
   { name: 'UNIQUE', sig: 'UNIQUE(range)', desc: 'Returns unique values from a range' },
   { name: 'SORT', sig: 'SORT(range, [sort_column], [ascending])', desc: 'Sorts the rows of a range' },
+  { name: 'SPARKLINE', sig: 'SPARKLINE(data, [options])', desc: 'Creates a miniature chart in a cell' },
   { name: 'FILTER', sig: 'FILTER(range, condition, [if_empty])', desc: 'Filters a range based on a condition' },
   { name: 'FIXED', sig: 'FIXED(number, [decimals], [no_commas])', desc: 'Formats a number with a fixed number of decimal places' },
   { name: 'PMT', sig: 'PMT(rate, nper, pv, [fv], [type])', desc: 'Calculates the payment for a loan' },
