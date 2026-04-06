@@ -141,6 +141,13 @@ export default class KeyboardHandler {
             case 'f': e.preventDefault(); ss.showFindReplace(); break;
             case 'h': e.preventDefault(); ss.showFindReplace(true); break;
             case 's': e.preventDefault(); ss.emit('save'); break;
+            case 'd': e.preventDefault(); ss.fillDown(); break;
+            case 'r': e.preventDefault(); ss.fillRight(); break;
+            case ';': e.preventDefault();
+              if (shift) { if (ss.editor) ss.editor.beginEnter(new Date().toLocaleTimeString()); }
+              else { if (ss.editor) ss.editor.beginEnter(new Date().toLocaleDateString()); }
+              break;
+            case '\\': e.preventDefault(); ss.clearFormatting(); break;
           }
           return;
         }

@@ -1119,6 +1119,52 @@ export default class Spreadsheet {
     this.findReplace.show(replace);
   }
 
+  // ── Fill Down / Right ──
+
+  fillDown() {
+    const sel = this.selection;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet || sel.isSingleCell) return;
+    for (let c = sel.startCol; c <= sel.endCol; c++) {
+      const srcCell = sheet.getCell(sel.startRow, c);
+      const srcVal = srcCell ? (srcCell.formula || srcCell.rawValue) : null;
+      const srcStyle = srcCell && srcCell.style ? srcCell.style.clone() : null;
+      for (let r = sel.startRow + 1; r <= sel.endRow; r++) {
+        if (srcVal && String(srcVal).startsWith('=')) {
+          const adjusted = FormulaEngine.copyFormula(srcVal, r - sel.startRow, 0);
+          sheet.setCellFormula(r, c, adjusted);
+        } else {
+          sheet.setCellValue(r, c, srcVal);
+        }
+        if (srcStyle) sheet.setCellStyle(r, c, srcStyle);
+      }
+    }
+    this.recalculate();
+    this.render();
+  }
+
+  fillRight() {
+    const sel = this.selection;
+    const sheet = this.activeSheet;
+    if (!sel || !sheet || sel.isSingleCell) return;
+    for (let r = sel.startRow; r <= sel.endRow; r++) {
+      const srcCell = sheet.getCell(r, sel.startCol);
+      const srcVal = srcCell ? (srcCell.formula || srcCell.rawValue) : null;
+      const srcStyle = srcCell && srcCell.style ? srcCell.style.clone() : null;
+      for (let c = sel.startCol + 1; c <= sel.endCol; c++) {
+        if (srcVal && String(srcVal).startsWith('=')) {
+          const adjusted = FormulaEngine.copyFormula(srcVal, 0, c - sel.startCol);
+          sheet.setCellFormula(r, c, adjusted);
+        } else {
+          sheet.setCellValue(r, c, srcVal);
+        }
+        if (srcStyle) sheet.setCellStyle(r, c, srcStyle);
+      }
+    }
+    this.recalculate();
+    this.render();
+  }
+
   // ── Charts ──
 
   insertChart(rangeStr, type, options) {
