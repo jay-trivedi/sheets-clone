@@ -5,12 +5,13 @@ export default class SheetTabs {
     this.spreadsheet = spreadsheet;
     this.element = null;
     this.tabsContainer = null;
+    this._dragTab = null;
+    this._dragIdx = -1;
   }
 
   init(container) {
     this.element = el('div', { className: 'sheets-sheet-tabs' });
 
-    // Add sheet button
     const addBtn = el('button', {
       className: 'sheets-add-sheet-btn',
       title: 'Add sheet',
@@ -31,14 +32,21 @@ export default class SheetTabs {
     const ss = this.spreadsheet;
     this.tabsContainer.innerHTML = '';
 
-    for (const sheet of ss.sheets) {
+    for (let i = 0; i < ss.sheets.length; i++) {
+      const sheet = ss.sheets[i];
+      const isActive = sheet === ss.activeSheet;
+
       const tab = el('div', {
-        className: 'sheets-tab' + (sheet === ss.activeSheet ? ' active' : ''),
+        className: 'sheets-tab' + (isActive ? ' active' : ''),
       });
 
-      const label = el('span', {
-        className: 'sheets-tab-label',
-      }, sheet.name);
+      // Tab color indicator
+      if (sheet._tabColor) {
+        tab.style.borderBottomColor = sheet._tabColor;
+        tab.style.borderBottomWidth = '3px';
+      }
+
+      const label = el('span', { className: 'sheets-tab-label' }, sheet.name);
 
       // Double-click to rename
       label.addEventListener('dblclick', (e) => {
@@ -51,8 +59,6 @@ export default class SheetTabs {
       // Click to switch
       tab.addEventListener('click', (e) => {
         if (ss.editor && ss.editor.isActive && ss.editor.isFormulaMode) {
-          // During formula editing: switch visible sheet but keep editor open
-          // Store which sheet we're viewing for cross-sheet ref insertion
           ss._formulaEditSheetId = ss.activeSheet.id;
           ss.activeSheetIndex = ss.sheets.findIndex(s => s.id === sheet.id);
           ss.renderer.scrollTo(0, 0);
@@ -64,10 +70,42 @@ export default class SheetTabs {
         this.update();
       });
 
-      // Right-click for context menu
+      // Right-click context menu
       tab.addEventListener('contextmenu', (e) => {
         e.preventDefault();
         this._showTabMenu(e.clientX, e.clientY, sheet);
+      });
+
+      // Drag to reorder
+      tab.draggable = true;
+      tab.addEventListener('dragstart', (e) => {
+        this._dragIdx = i;
+        this._dragTab = tab;
+        tab.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+      });
+      tab.addEventListener('dragend', () => {
+        tab.classList.remove('dragging');
+        this._dragTab = null;
+        this._dragIdx = -1;
+      });
+      tab.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        tab.classList.add('drag-over');
+      });
+      tab.addEventListener('dragleave', () => {
+        tab.classList.remove('drag-over');
+      });
+      tab.addEventListener('drop', (e) => {
+        e.preventDefault();
+        tab.classList.remove('drag-over');
+        if (this._dragIdx >= 0 && this._dragIdx !== i) {
+          const moved = ss.sheets.splice(this._dragIdx, 1)[0];
+          ss.sheets.splice(i, 0, moved);
+          ss.activeSheetIndex = ss.sheets.findIndex(s => s === ss.activeSheet);
+          this.update();
+        }
       });
 
       this.tabsContainer.appendChild(tab);
@@ -103,15 +141,20 @@ export default class SheetTabs {
 
   _showTabMenu(x, y, sheet) {
     const ss = this.spreadsheet;
-    const self = this;
 
-    const menu = el('div', { className: 'sheets-context-menu', style: { left: x + 'px', top: y + 'px' } });
+    const menu = el('div', { className: 'sheets-context-menu' });
+
+    // Position — ensure it doesn't go off-screen (especially at bottom)
+    menu.style.position = 'fixed';
+    menu.style.left = x + 'px';
+    // Position ABOVE the click point since tabs are at the bottom
+    menu.style.top = 'auto';
+    menu.style.bottom = (window.innerHeight - y) + 'px';
 
     const closeMenu = () => {
       if (menu.parentElement) menu.remove();
       document.removeEventListener('mousedown', onOutsideClick);
     };
-
     const onOutsideClick = (e) => {
       if (!menu.contains(e.target)) closeMenu();
     };
@@ -119,21 +162,49 @@ export default class SheetTabs {
     const items = [
       { label: 'Rename', action: () => {
         closeMenu();
-        // Use requestAnimationFrame to wait for DOM update after menu closes
         requestAnimationFrame(() => {
-          if (!self.tabsContainer) return;
-          const tab = self.tabsContainer.querySelector('.active');
+          if (!this.tabsContainer) return;
+          const tab = this.tabsContainer.querySelector('.active');
           if (tab) {
             const label = tab.querySelector('.sheets-tab-label');
-            if (label) self._startRename(tab, label, sheet);
+            if (label) this._startRename(tab, label, sheet);
           }
         });
       }},
       { label: 'Duplicate', action: () => { closeMenu(); ss.duplicateSheet(sheet.id); } },
       { label: 'Delete', action: () => { closeMenu(); if (ss.sheets.length > 1) ss.deleteSheet(sheet.id); } },
+      null,
+      { label: sheet._hidden ? 'Show' : 'Hide', action: () => {
+        closeMenu();
+        if (sheet._hidden) { sheet._hidden = false; }
+        else if (ss.sheets.filter(s => !s._hidden).length > 1) { sheet._hidden = true; }
+        this.update();
+      }},
+      null,
+      { label: 'Change color', action: () => {
+        closeMenu();
+        const color = prompt('Tab color (hex):', sheet._tabColor || '#4285f4');
+        if (color) { sheet._tabColor = color; this.update(); }
+      }},
+      { label: 'Clear color', action: () => { closeMenu(); sheet._tabColor = null; this.update(); } },
+      null,
+      { label: 'Move left', action: () => {
+        closeMenu();
+        const idx = ss.sheets.indexOf(sheet);
+        if (idx > 0) { ss.sheets.splice(idx, 1); ss.sheets.splice(idx - 1, 0, sheet); ss.activeSheetIndex = ss.sheets.indexOf(ss.activeSheet); this.update(); }
+      }},
+      { label: 'Move right', action: () => {
+        closeMenu();
+        const idx = ss.sheets.indexOf(sheet);
+        if (idx < ss.sheets.length - 1) { ss.sheets.splice(idx, 1); ss.sheets.splice(idx + 1, 0, sheet); ss.activeSheetIndex = ss.sheets.indexOf(ss.activeSheet); this.update(); }
+      }},
     ];
 
     for (const item of items) {
+      if (item === null) {
+        menu.appendChild(el('div', { className: 'sheets-context-sep' }));
+        continue;
+      }
       const menuItem = el('div', {
         className: 'sheets-context-item',
         onClick: () => item.action(),

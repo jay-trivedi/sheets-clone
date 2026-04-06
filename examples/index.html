@@ -604,24 +604,46 @@
     const _origSetStyle = ss.setStyle.bind(ss);
     ss.setStyle = function(p) { _origSetStyle(p); scheduleSave(); };
 
-    // ── Menu System ──
+    // ── Menu System (mouseenter switching like Google Sheets) ──
     let activeMenu = null;
+    let _menuCloseHandler = null;
+
+    document.querySelectorAll('.app-menu-item').forEach(item => {
+      item.addEventListener('mouseenter', () => {
+        if (!activeMenu) return;
+        const m = item.getAttribute('onclick');
+        const id = m && m.match(/'(\w+)'/)?.[1];
+        if (!id) return;
+        const menu = document.getElementById('menu-' + id);
+        if (menu && menu !== activeMenu) {
+          document.querySelectorAll('.dropdown-menu').forEach(d => d.style.display = 'none');
+          menu.style.display = 'block';
+          activeMenu = menu;
+        }
+      });
+    });
 
     function toggleMenu(el, id) {
       const menu = document.getElementById('menu-' + id);
-      closeAllMenus();
-      if (menu && menu.style.display !== 'block') {
-        menu.style.display = 'block';
-        activeMenu = menu;
-        setTimeout(() => {
-          document.addEventListener('click', closeAllMenus, { once: true });
-        }, 0);
-      }
+      if (!menu) return;
+      const wasOpen = menu.style.display === 'block';
+      document.querySelectorAll('.dropdown-menu').forEach(d => d.style.display = 'none');
+      if (wasOpen) { activeMenu = null; return; }
+      menu.style.display = 'block';
+      activeMenu = menu;
+      if (_menuCloseHandler) document.removeEventListener('mousedown', _menuCloseHandler);
+      _menuCloseHandler = (e) => {
+        if (!e.target.closest('.dropdown-menu') && !e.target.closest('.app-menu-item')) {
+          closeAllMenus();
+        }
+      };
+      setTimeout(() => document.addEventListener('mousedown', _menuCloseHandler), 10);
     }
 
     function closeAllMenus() {
       document.querySelectorAll('.dropdown-menu').forEach(m => m.style.display = 'none');
       activeMenu = null;
+      if (_menuCloseHandler) { document.removeEventListener('mousedown', _menuCloseHandler); _menuCloseHandler = null; }
     }
 
     // ── Export Menu ──

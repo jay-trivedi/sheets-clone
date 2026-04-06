@@ -1,16 +1,31 @@
 import { el } from '../utils/helpers.js';
 
+/**
+ * Status bar — sits inside the sheet tabs bar (right side).
+ * Shows one metric at a time (Sum by default), click to cycle.
+ * Click the label to see a dropdown with all metrics.
+ */
 export default class StatusBar {
   constructor(spreadsheet) {
     this.spreadsheet = spreadsheet;
     this.element = null;
+    this._metrics = ['Sum', 'Avg', 'Count', 'Min', 'Max'];
+    this._activeMetric = 'Sum';
+    this._allValues = {};
   }
 
   init(container) {
-    this.element = el('div', { className: 'sheets-status-bar' });
-    this._content = el('div', { className: 'sheets-status-content' });
-    this.element.appendChild(this._content);
-    container.appendChild(this.element);
+    this.element = el('div', { className: 'sheets-status-content' });
+    this.element.addEventListener('click', (e) => this._showPicker(e));
+
+    const tabsBar = container.querySelector('.sheets-sheet-tabs');
+    if (tabsBar) {
+      tabsBar.appendChild(this.element);
+    } else {
+      const bar = el('div', { className: 'sheets-status-bar' });
+      bar.appendChild(this.element);
+      container.appendChild(bar);
+    }
 
     this.spreadsheet.on('selectionChanged', () => this.update());
   }
@@ -19,9 +34,8 @@ export default class StatusBar {
     const ss = this.spreadsheet;
     const sheet = ss.activeSheet;
     const sel = ss.selection;
-    if (!sheet || !sel || !this._content) return;
+    if (!sheet || !sel || !this.element) return;
 
-    // Collect numeric values from selection
     const nums = [];
     let count = 0;
     for (let r = sel.startRow; r <= sel.endRow; r++) {
@@ -35,24 +49,62 @@ export default class StatusBar {
       }
     }
 
-    if (nums.length === 0 && count === 0) {
-      this._content.textContent = '';
+    if (nums.length === 0 && count <= 1) {
+      this.element.textContent = '';
+      this._allValues = {};
       return;
     }
 
-    const parts = [];
-    if (count > 1) parts.push(`Count: ${count}`);
-    if (nums.length > 0) {
-      const sum = nums.reduce((a, b) => a + b, 0);
-      parts.push(`Sum: ${this._fmt(sum)}`);
-      parts.push(`Avg: ${this._fmt(sum / nums.length)}`);
-      if (nums.length > 1) {
-        parts.push(`Min: ${this._fmt(Math.min(...nums))}`);
-        parts.push(`Max: ${this._fmt(Math.max(...nums))}`);
-      }
+    const sum = nums.length > 0 ? nums.reduce((a, b) => a + b, 0) : 0;
+    this._allValues = {
+      Sum: nums.length > 0 ? this._fmt(sum) : '-',
+      Avg: nums.length > 0 ? this._fmt(sum / nums.length) : '-',
+      Count: String(count),
+      Min: nums.length > 0 ? this._fmt(Math.min(...nums)) : '-',
+      Max: nums.length > 0 ? this._fmt(Math.max(...nums)) : '-',
+    };
+
+    const val = this._allValues[this._activeMetric] || '-';
+    this.element.textContent = `${this._activeMetric}: ${val}`;
+  }
+
+  _showPicker(e) {
+    if (Object.keys(this._allValues).length === 0) return;
+
+    // Remove existing picker
+    const existing = document.querySelector('.sheets-status-picker');
+    if (existing) { existing.remove(); return; }
+
+    const picker = el('div', { className: 'sheets-status-picker' });
+    const rect = this.element.getBoundingClientRect();
+    picker.style.position = 'fixed';
+    picker.style.left = rect.left + 'px';
+    picker.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+
+    for (const metric of this._metrics) {
+      const val = this._allValues[metric] || '-';
+      const item = el('div', {
+        className: 'sheets-status-picker-item' + (metric === this._activeMetric ? ' active' : ''),
+      });
+      item.innerHTML = `<span class="sheets-sp-label">${metric}</span><span class="sheets-sp-value">${val}</span>`;
+      item.addEventListener('click', (ev) => {
+        ev.stopPropagation();
+        this._activeMetric = metric;
+        this.update();
+        picker.remove();
+      });
+      picker.appendChild(item);
     }
 
-    this._content.textContent = parts.join('    ');
+    document.body.appendChild(picker);
+
+    const close = (ev) => {
+      if (!picker.contains(ev.target) && ev.target !== this.element) {
+        picker.remove();
+        document.removeEventListener('mousedown', close);
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', close), 0);
   }
 
   _fmt(n) {
