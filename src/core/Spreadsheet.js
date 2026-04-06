@@ -19,6 +19,7 @@ import ContextMenu from '../ui/ContextMenu.js';
 import FindReplace from '../ui/FindReplace.js';
 import StatusBar from '../ui/StatusBar.js';
 import CommandManager from '../features/CommandManager.js';
+import ChartManager from '../features/ChartManager.js';
 import DataValidationManager from '../features/DataValidation.js';
 import NamedRangesManager from '../features/NamedRanges.js';
 import ConditionalFormatUI from '../features/ConditionalFormatUI.js';
@@ -67,6 +68,7 @@ export default class Spreadsheet {
     this.contextMenu = this.options.contextMenu ? new ContextMenu(this) : null;
     this.findReplace = new FindReplace(this);
     this.statusBar = new StatusBar(this);
+    this.chartManager = new ChartManager(this);
     this.dataValidation = new DataValidationManager(this);
     this.namedRanges = new NamedRangesManager(this);
     this.conditionalFormatUI = new ConditionalFormatUI(this);
@@ -1066,6 +1068,16 @@ export default class Spreadsheet {
 
   showFindReplace(replace = false) {
     this.findReplace.show(replace);
+  }
+
+  // ── Charts ──
+
+  insertChart(rangeStr, type, options) {
+    return this.chartManager.insert(rangeStr, type, options);
+  }
+
+  showChartDialog() {
+    this.chartManager.showDialog();
   }
 
   // ── Data Validation ──

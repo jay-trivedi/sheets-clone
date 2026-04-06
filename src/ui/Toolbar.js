@@ -72,7 +72,7 @@ export default class Toolbar {
     // 30-32: Link, Comment, Chart
     this._addBtn('Insert link', ICONS.link, () => this._insertLink());
     this._addBtn('Insert comment', ICONS.comment, () => this._insertComment());
-    this._addBtn('Insert chart', ICONS.chart, () => this._toast('Charts coming soon'));
+    this._addBtn('Insert chart', ICONS.chart, () => ss.showChartDialog());
     this._sep();
 
     // 34: Filter

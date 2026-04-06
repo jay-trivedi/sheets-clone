@@ -1182,6 +1182,123 @@
 
 .sheets-cf-save-new, .sheets-cf-close { background: #1a73e8 !important; color: #fff !important; border-color: #1a73e8 !important; }
 
+/* ── Chart ── */
+.sheets-chart-container {
+  transition: box-shadow 0.15s;
+}
+
+.sheets-chart-container:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.sheets-chart-close {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: rgba(0,0,0,.06);
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 12px;
+  color: #444746;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.sheets-chart-container:hover .sheets-chart-close {
+  opacity: 1;
+}
+
+.sheets-chart-close:hover {
+  background: rgba(0,0,0,.12);
+}
+
+.sheets-chart-dialog {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  padding: 24px;
+  width: 440px;
+  max-height: 80vh;
+  overflow: auto;
+}
+
+.sheets-chart-dialog h3 { margin: 0 0 16px; font-size: 18px; color: #1f1f1f; }
+
+.sheets-chart-field {
+  margin-bottom: 14px;
+}
+
+.sheets-chart-field label {
+  display: block;
+  font-size: 12px;
+  color: #444746;
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+.sheets-chart-field input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #c4c7c5;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+}
+
+.sheets-chart-field input[type="text"]:focus { border-color: #3271ea; }
+
+.sheets-chart-types {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sheets-chart-types button {
+  width: 48px;
+  height: 40px;
+  border: 2px solid #c4c7c5;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.15s;
+}
+
+.sheets-chart-types button:hover { border-color: #3271ea; background: #f0f4f9; }
+.sheets-chart-types button.active { border-color: #3271ea; background: #d3e3fd; }
+
+.sheets-chart-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.sheets-chart-actions button {
+  padding: 8px 20px;
+  border: 1px solid #c4c7c5;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: 'Google Sans', Roboto, Arial, sans-serif;
+  background: #fff;
+}
+
+.sheets-chart-insert {
+  background: #0b57d0 !important;
+  color: #fff !important;
+  border-color: #0b57d0 !important;
+}
+
+.sheets-chart-insert:hover { background: #0842a0 !important; }
+
 /* ── Status Bar ── */
 .sheets-status-bar {
   display: flex;
