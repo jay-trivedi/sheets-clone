@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import EventBus from '../utils/EventBus.js';
 import { el, cellKey, keyToRC, indexToCol, deepClone, parseCellRef, cellRefToString } from '../utils/helpers.js';
 import { DEFAULT_ROWS, DEFAULT_COLS, CELL_TYPE } from '../utils/constants.js';
@@ -1394,6 +1395,65 @@ export default class Spreadsheet {
 
   exportCSV(delimiter) {
     return generateCSV(this.activeSheet, delimiter);
+  }
+
+  /**
+   * Import an XLSX/XLS file from an ArrayBuffer or Uint8Array.
+   * Populates sheets with cell values, formulas, and number formats.
+   */
+  importXLSX(data) {
+    const workbook = XLSX.read(data, { type: 'array', cellStyles: true, cellFormula: true });
+
+    // Clear existing sheets
+    this.sheets = [];
+
+    function colLetter(c) {
+      let s = '';
+      let n = c;
+      while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; }
+      return s;
+    }
+
+    for (let i = 0; i < workbook.SheetNames.length; i++) {
+      const sheetName = workbook.SheetNames[i];
+      const ws = workbook.Sheets[sheetName];
+      const sheet = this.addSheet(sheetName);
+
+      const ref = ws['!ref'];
+      if (!ref) continue;
+      const range = XLSX.utils.decode_range(ref);
+
+      for (let r = range.s.r; r <= range.e.r; r++) {
+        for (let c = range.s.c; c <= range.e.c; c++) {
+          const addr = colLetter(c) + (r + 1);
+          const cell = ws[addr];
+          if (!cell) continue;
+
+          if (cell.f) {
+            sheet.setCellFormula(r, c, '=' + cell.f);
+          } else if (cell.v !== undefined && cell.v !== null) {
+            sheet.setCellValue(r, c, cell.v);
+          }
+
+          if (cell.z && cell.z !== 'General') {
+            sheet.setCellStyle(r, c, { numberFormat: cell.z });
+          }
+        }
+      }
+
+      // Column widths
+      if (ws['!cols']) {
+        ws['!cols'].forEach((col, idx) => {
+          if (col && col.wpx) sheet.setColWidth(idx, col.wpx);
+        });
+      }
+    }
+
+    // Activate first sheet
+    this.activeSheetIndex = 0;
+    if (this.sheetTabs) this.sheetTabs.update();
+    this.recalculate();
+    this.render();
   }
 
   // ── Bulk data ──
